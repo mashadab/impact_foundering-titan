@@ -21,27 +21,28 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     set(groot,'defaultLegendInterpreter','latex')
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
-    % make ice shell thickness based on impact code passed
+    % make ice shell thickness based on impact code passed iSALE
     if any([all(fn == '03321') all(fn == '03800') all(fn == '04304')])
-        d = 10*1e3; % m
+        d = 10*1e3; % ice shell thickness, m  
     elseif any([all(fn == '03314') all(fn == '03402') all(fn == '03400')])
-        d = 20*1e3; % m
+        d = 20*1e3; % ice shell thickness, m
     elseif any([all(fn == '03313') all(fn == '03701')])
-        d = 30*1e3; % m
+        d = 30*1e3; % ice shell thickness, m
     elseif all(fn == '03330')
-        d = 40*1e3; % m
+        d = 40*1e3; % ice shell thickness, m
     end
 
     % threshold of intial fluid left in ice shell to stop simulation at
     termFrac = 0.005;
     
-    % load simulations from initial conditions folder
-    fp = '../initial_conditions/ic';
-    load([fp fn '_100.mat'],'T','phi');
+    % load simulations from initial conditions folder (Digitized output via
+    % Python from iSALE simulations)
+    fp = '../initial_conditions/ic'; %loading the initial conditions
+    load([fp fn '_100.mat'],'T','phi'); %loading porosity phi and temp T
 
     %% Set physical parameters and make dimensionless scales
     % physical parameters for ice
-    T_t = 100; % surface temperature
+    T_t = 100; % surface temperature, K
     a = 185; % ice specific heat parameter
     b = 7.037; % ice specific heat parameter
     T_b = 273; % melting temperature, K
@@ -57,73 +58,88 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     rho_w = 1e3; % density of water, kg/m^3
     c_pw = 4.186e3; % specific ehat of water, J/kg
     kappa_w = 0.56; %thermal diffusivity of water, W/(m K)
-    porViscPar = 45;
+    porViscPar = 45;%How much a certain amt of melt reduce viscosity of ice
     
     % temperature and melt fraction dependent viscosity, Pa s
     barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
-    c_fun = @(nonT) a+b*(DT*nonT+T_t); %J/(kg K)
+    % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
+    % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
+    c_fun = @(nonT) a+b*(DT*nonT+T_t); %specific heat function, J/(kg K)
     kappa_b = 3.3; %thermal conductivity of ice, set to be consistent with Cox and Bauer, 2015
     D_T = kappa_b/(rho_i *c_fun(1)); % thermal diffusicvity of ice, m^2/s
     c_pi = c_fun(1); %constant specific heat, J/(kg K)
     
-    
     % thershold for melting: dimensionless boundary between partial and
     % fully melted regions
-    mixZone = (rho_w*latHeat)/(rho_i*c_pi*DT);
-
-    phi_fun = @(nonH) nonH * (rho_i*c_pi*DT)/(rho_w*latHeat); 
-    TWater_fun = @(nonH) nonH * (rho_i*c_pi)/(rho_w*c_pw) - latHeat/(DT*c_pw) + 1;
-    compBouy_fun = @(phi)  phi*rho_i*(rho_w/rho_i-1)*(grav*d^3/(eta_0*D_T));
+    mixZone = (rho_w*latHeat)/(rho_i*c_pi*DT); %fully ice to fully water mix spectrum
+                                               %similar to Stefan number = latent heat / sensible heat
+    
+    phi_fun = @(nonH) nonH * (rho_i*c_pi*DT)/(rho_w*latHeat); %porosity: fully ice = 0 to fully water = 1
+    TWater_fun = @(nonH) nonH * (rho_i*c_pi)/(rho_w*c_pw) - latHeat/(DT*c_pw) + 1; %Dim Temperature, K
+    compBouy_fun = @(phi)  phi*rho_i*(rho_w/rho_i-1)*(grav*d^3/(eta_0*D_T)); %Dimless RHS of mass balance
+                                                                             %Ice is lighter than water
     
     % conversion in dimensionless units with constant specific heat
     nonH_fun = @(nonT) nonT - 1; 
     nonT_fun = @(nonH) nonH + 1;
     % condictivity is weighted average of mixture components
-    porKappaPrime_fun = @(phi,nonT) (phi*kappa_w + (1-phi).*kappa_b)/kappa_b;
+    porKappaPrime_fun = @(phi,nonT) (phi*kappa_w + (1-phi).*kappa_b)/kappa_b; %thermal cond. W/(m-K)
     porNonH_fun = @(phi,nonT) (1-phi).*(nonH_fun(nonT)) + ...
-        (phi*rho_w)./(rho_i*c_pi*DT).*(latHeat+c_pw*DT*(nonT-1));
+        (phi*rho_w)./(rho_i*c_pi*DT).*(latHeat+c_pw*DT*(nonT-1)); %Dimless enthalpy
     
     % characteristic scales for general convection
-    t_c = d^2/D_T; % dimensionless time, s
+    t_c = d^2/D_T; % convection time scale, s
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
-    % non-dimensionalize tmeprature
+    % non-dimensionalize temperature
     T = (T - T_t)/DT;
 
     % thermal condutvity in convective ocean, set to maintain vertical
-    % geotherm in ocean
-    kappa_c = 100;
+    % isotherm in ocean
+    kappa_c = 100; %thermal cond. W/(m-K) is set high to make ocean isothermal
 
     %% build cylindirical grid for numerical solution
     % build grid
-    grRes = 100; % grid resolution
-    ocTh = grRes/5; % make ocean below the ice shell
-    Gridp.xmin = 0; Gridp.xmax = 2; Gridp.Nx = grRes; 
-    Gridp.ymin = -ocTh/grRes; Gridp.ymax = 1; Gridp.Ny = grRes+ocTh;
-    Gridp.geom = 'cylindrical_rz';
-    Grid = build_stokes_grid_cyl(Gridp);
+    grRes = 100; % grid resolution in radial direction
+    ocTh = grRes/5; % make ocean below the ice shell: 1/5 factor being 20% of the ice shell
+    Gridp.xmin = 0; Gridp.xmax = 2; Gridp.Nx = grRes; %radial direction
+    Gridp.ymin = -ocTh/grRes; Gridp.ymax = 1; Gridp.Ny = grRes+ocTh; %vertical direction
+    Gridp.geom = 'cylindrical_rz';       %geometry type: cylinderical r-z coordinates
+    Grid = build_stokes_grid_cyl(Gridp); %build grid for Stokes equation in 
     
     % convert inital condition to grid
-    TGr = reshape(T,grRes,Grid.p.Nx);
-    phiGr = reshape(phi,grRes,Grid.p.Nx);
-    % get initial melt volumes
+    TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
+    phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
+    % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3);
-    
+    % First sum is for porosity in the z direction since volume is same
+    % Second sum is after multiplying the grid volume at bottom cells
+    % Lastly d^3 comes from the redimensionalization to calculate melt volumes
+    % First 10 rows are ignored since ocean there is neglected so 
+    % phiGr(10:end,:) and not phiGr(1:end,:)
+   
     % build ocean layer
-    TOc = ones(ocTh,Grid.p.Nx);
-    phiOc = ones(ocTh,Grid.p.Nx);
+    TOc = ones(ocTh,Grid.p.Nx);    %Temperature of ocean, K
+    phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
     
-    % combine ice shell and ocean
-    TGr = [TOc; TGr];
-    phiGr = [phiOc; phiGr];
-    T = TGr(:);
-    phi = phiGr(:);
-    H = porNonH_fun(phi,T);
+    % combine ice shell and ocean to get the entire domain fields
+    TGr = [TOc; TGr]; %Temperature, K
+    phiGr = [phiOc; phiGr]; %Porosity or melt fraction
+    T = TGr(:); %Making Temperature array from grid, N by 1
+    phi = phiGr(:); %Making porosity array from grid, N by 1
+    H = porNonH_fun(phi,T); %Dimensionless porosity array
   
     %% build operators
-    Zp = zeros(Grid.p.N);
-    Ip = speye(Grid.p.N);
-    [D,Edot,Dp,Gp,I,Gyy]=build_stokes_ops_cyl(Grid);
+    Zp = zeros(Grid.p.N); %N by N Zero matrix
+    Ip = speye(Grid.p.N); %N by N indentity matrix
+    [D,Edot,Dp,Gp,I,Gyy]=build_stokes_ops_cyl(Grid); %Making stokes operators
+    % Refer to https://mhesse.github.io/numerical_modeling/spring2022/StokesOps.pdf
+    % D: Stokes divergence, Edot = operator for strain rate = \nabla (v) + \nabla (v))^T
+    % when operates on a velocity vector v, Dp: N by Nf divergence operator on pressure grid
+    % Gp: Nf by N gradient operator on pressure grid
+    % I is (Nf + N) by (Nf + N) identity matrix to apply BCs
+    % Gyy: Gradient of y directional grid in y-direction
+    
     linInds = find(Gyy > 0);
     [row,~] = ind2sub(size(Gyy),linInds);
     [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
@@ -149,6 +165,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     
     
     % Free slip boundary condition for Stokes equation
+    %Dirichlet BC below; Natural BCs are automatically defined
     Param(1).dof_dir =  [...
                       Grid.x.dof_xmax;...           %set x_max x-vel
                       Grid.x.dof_xmin;...           %set x_min x-vel
@@ -163,7 +180,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     fs_T = nan(size(T));
     
     
-    % create aarrays for time evolution storage
+    % create arrays for time evolution storage
     it = 1e9;
     netMelt = [];
     phiDrain1 = 0;
@@ -187,8 +204,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         Tdiag = comp_mean(Tplot,1,1,Grid.p);
         Tvec = diag(Tdiag);
         Ty = Tvec(Grid.p.Nfx+1:Grid.p.Nf);
-        fs_T(Ty>1) = -Ra*1;
-        fs_T(Ty<=1) = -Ra*Ty(Ty<=1);
+        fs_T(Ty>1) = -Ra*1;         %All melt only has maximum RHS of Rayleigh number (T>Tm)
+        fs_T(Ty<=1) = -Ra*Ty(Ty<=1);%Cold ice without melt has a lower magnitude Ra than 1 (T<=Tm)
         
         %compositional bouyancy
         phiPlot= reshape(phi,Grid.p.Ny,Grid.p.Nx);
@@ -197,7 +214,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         fs_por = compBouy_fun(phiY);
         
         % higher porosity acts against Ra bouyancy force 
-        fsVec = fs_T + fs_por;
+        fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
         fs = [zeros(Grid.p.Nfx,1); fsVec; zeros(Grid.p.N,1)];
         
         %Gxx variable viscosity matrix
@@ -225,7 +242,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         
         % merge temperature and melt fraction viscosities
         viscVec = barrViscPhase(tempVec,phiVec,barrViscPhi);
-        viscVec(isnan(viscVec)) = 0;
+        viscVec(isnan(viscVec)) = 0; %Due to mean, 1/0 appear at corners so making them 0
         viscMat = spdiags(viscVec,0,length(viscVec),length(viscVec));
         
         %% Stokes Flow calcualtion
@@ -237,27 +254,28 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         u = solve_lbvp(L,fs,B,Param.g,N);
         vx = u(1:Grid.p.Nfx);
         vy = u(Grid.p.Nfx+1:(Grid.p.Nfx+Grid.p.Nfy));
-        vm = [vx;vy];
-        vmax= max(abs(vm));
-        % Adaptive time stepping based on CFL condition
+        vm = [vx;vy];       %velocity of the two-phase mixture, m/s
+        vmax= max(abs(vm)); %largest velocity
+        % Adaptive time stepping based on competition b/w CFL and Neumann
+        % conditions in each direction; CFL number set to 0.8
         dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.8;
-        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end);
+        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
         
         %% non-linear thermal conducitivity matricies
-        kappaPrime = porKappaPrime_fun(phi,T);
-        % select near bouundary ocean cells
-        ocLog = Y(:) < 2/grRes & phi > 0.5;
+        kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
+        % select near boundary ocean cells
+        ocLog = Y(:) < 2/grRes & phi > 0.5; %Porosity greater than 50% and z (2)
         kappaPrime(ocLog) = kappa_c;
         kappaPrimePlot = reshape(kappaPrime,Grid.p.Ny,Grid.p.Nx);
         kappaFace = comp_mean(kappaPrimePlot,1,1,Grid.p);
                 
         %% Advection of enthalpy, diffusion of temperature
-        AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc');
-        L_T_I = Ip; 
-        L_T_E_T = - dt*(-Dp*kappaFace*Gp);
-        L_T_E_H = Ip - dt*(Dp*AH);
-        RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt;
-        H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH);  
+        AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
+        L_T_I = Ip;  % Implicit operator (Unity as the method is explicit) 
+        L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
+        L_T_E_H = Ip - dt*(Dp*AH);         %Linear operator of heat advection
+        RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
+        H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching or solving the linear bnd value problem
     
         %% calculate net melt and melt transported to "ocean"
         % make two planes to measure the melt transported through
@@ -302,7 +320,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         
     
         %% PLOTTING
-         if mod(i,10) == 0
+         if mod(i,20) == 0
              i
     
             figure(4);
