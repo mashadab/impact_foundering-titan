@@ -21,7 +21,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     set(groot,'defaultLegendInterpreter','latex')
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
-    % make ice shell thickness based on impact code passed iSALE
+    % make ice shell thickness based on impact code passed from iSALE
     if any([all(fn == '03321') all(fn == '03800') all(fn == '04304')])
         d = 10*1e3; % ice shell thickness, m  
     elseif any([all(fn == '03314') all(fn == '03402') all(fn == '03400')])
@@ -211,7 +211,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         phiPlot= reshape(phi,Grid.p.Ny,Grid.p.Nx);
         phiDiag = diag(comp_mean(phiPlot,1,1,Grid.p));
         phiY = phiDiag(Grid.p.Nfx+1:Grid.p.Nf);
-        fs_por = compBouy_fun(phiY);
+        fs_por = compBouy_fun(phiY); %calculating RHS of momentum balance
         
         % higher porosity acts against Ra bouyancy force 
         fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
@@ -322,7 +322,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         %% PLOTTING
          if mod(i,20) == 0
              i
-    
+
+            %streamfunction plot
             figure(4);
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
@@ -338,7 +339,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             c.Label.String = 'Temperature, K';
             xlabel('x-dir, km')
             ylabel('z-dir, km')
-            
+
+            %melt fraction plot
             subplot(3,3,2)
             cla;
             axis equal
@@ -350,27 +352,29 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             ylabel('z-dir, 1')
             c.Label.String = 'Melt fraction, 1';
             
-                
+            %average in radial direction melt fraction plot along z           
             subplot(3,3,3)
             cla;
             plot(mean(reshape(phi,Grid.p.Ny,Grid.p.Nx),2),Grid.p.yc)
             ylabel('z-dir, 1');
             xlabel('Average melt fraction');
-            
+ 
+            %average in radial  direction temperature in fraction plot along z
             subplot(3,3,4)
             cla;
             plot(mean(reshape(T,Grid.p.Ny,Grid.p.Nx),2),Grid.p.yc)
             xlabel('Avg. temp');
             ylabel('z-dir, 1');
             
-            
+            %total melt remaining as a function of time          
             subplot(3,3,5)
             cla;
             hold on
             plot(phiFracRem);
             ylabel('Total melt remaining, \%');
             xlabel('Time, yrs')
-            
+
+            %dimensionless thermal conductivity at each time
             subplot(3,3,6)
             cla;
             hold on
@@ -383,6 +387,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             c.TickLabelInterpreter = 'latex';
             c.Label.String = 'Non-dim thermal conductivity';
             
+            %Melt drained through the two planes to calculate the total
+            %melt drained from the ocean
             [Xc,Yf] = meshgrid(Grid.p.xc,Grid.p.yf);
             subplot(3,3,7)
             cla;
@@ -393,6 +399,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             ylabel('Melt drained, m$^3$');
             xlabel('Time, yrs')
             
+            %Percentage of melt drained through the two planes to 
+            %calculate the total melt drained from the ocean
             subplot(3,3,8)
             cla;
             plot(tVec,phiDrain1Vec/phiOrig*100);
@@ -402,6 +410,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             ylabel('Percentage of melt drained, \%');
             xlabel('Time, yrs')
             
+            %Total dimensionless buoyancy
             subplot(3,3,9)
             cla;
             axis equal
