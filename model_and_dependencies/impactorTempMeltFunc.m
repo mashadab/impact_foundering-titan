@@ -12,7 +12,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         E_a (int): visocisty activation energy in Arrhenihus relationship
         given in J/mol, 50e3 is a common value
 
-    Author: Evan Carnahan, evan.carnahan@utexas.edu, 11/20/2022
+    Author: Mohammad Afzal Shadab, mashadab@utexas.edu, June 6, 2023; 
+            Evan Carnahan, evan.carnahan@utexas.edu, 11/20/2022
     %}
 
     set(groot,'defaulttextinterpreter','latex')
@@ -393,7 +394,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             c.Label.String = 'Total Bouyancy, 1';
             xlabel('x-dir, 1')
             ylabel('z-dir, 1')
-         
+            
          end
     end
 end
