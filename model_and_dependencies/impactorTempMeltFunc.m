@@ -12,7 +12,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         E_a (int): visocisty activation energy in Arrhenihus relationship
         given in J/mol, 50e3 is a common value
 
-    Author: Mohammad Afzal Shadab, mashadab@utexas.edu, June 6, 2023; 
+    Author: Mohammad Afzal Shadab, mashadab@utexas.edu, June 6, 2023 (search %%%%); 
             Evan Carnahan, evan.carnahan@utexas.edu, 11/20/2022
     %}
 
@@ -106,10 +106,12 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     Gridp.ymin = -ocTh/grRes; Gridp.ymax = 1; Gridp.Ny = grRes+ocTh; %vertical direction
     Gridp.geom = 'cylindrical_rz';       %geometry type: cylinderical r-z coordinates
     Grid = build_stokes_grid_cyl(Gridp); %build grid for Stokes equation in 
+    [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
     
     % convert inital condition to grid
     TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
     phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
+    
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3);
     % First sum is for porosity in the z direction since volume is same
@@ -128,7 +130,17 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     T = TGr(:); %Making Temperature array from grid, N by 1
     phi = phiGr(:); %Making porosity array from grid, N by 1
     H = porNonH_fun(phi,T); %Dimensionless porosity array
-  
+
+    %%%%
+    %initializing tracer with max conc. unity in a certain region: between
+    %dimensionless z = 0.8 to 1.0
+    trc = ones(Grid.p.N,1); %initializing tracer with max conc. unity
+    trc(Y(:)<0.8) = 0;
+    
+    trc(phiGr>0.1) = 1;%Melted region being initialized
+    trc(Y(:)<0.1) = 0; %Taking out the ocean
+    %%%%
+    
     %% build operators
     Zp = zeros(Grid.p.N); %N by N Zero matrix
     Ip = speye(Grid.p.N); %N by N indentity matrix
@@ -142,7 +154,6 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     
     linInds = find(Gyy > 0);
     [row,~] = ind2sub(size(Gyy),linInds);
-    [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
     
     %% Build boundary conditions for temperature and flow equation
     % Fix temperature at top of ice shell with Dirchlet BC
@@ -150,7 +161,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     H0 = nonH_fun(T0);
     Param = struct('H',{},'g',{},'dof_dir',{});
     Param(1).H = struct('dof_dir',{},'dof_f_dir',{},'g',{},'dof_neu',{},'dof_f_neu',{},'qb',{},'dof_out',{});
-    
+     
     % fix bottom heat flux, Neumann BC, to maintain linear geotherm in ice shell
     qPrime = 1;
     Param.H(1).dof_dir = [Grid.p.dof_ymax];
@@ -179,6 +190,18 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     N(:,[Param.dof_dir]) = [];
     fs_T = nan(size(T));
     
+    %%%% 
+    %% Build boundary conditions for conservative tracer equation, c   
+    Param(1).c = struct('dof_dir',{},'dof_f_dir',{},'g',{},'dof_neu',{},'dof_f_neu',{},'qb',{},'dof_out',{}); %%%%
+    
+    Param.c(1).dof_dir   =  [];
+    Param.c(1).dof_f_dir =  [];
+    Param.c(1).g         =  [];
+    Param.c(1).dof_neu   =  [];
+    Param.c(1).dof_f_neu =  [];
+    Param.c(1).qb        =  [];
+    [B_c,N_c,fn_c]    =  build_bnd(Param.c(1),Grid.p,Ip);
+    %%%%
     
     % create arrays for time evolution storage
     it = 1e9;
@@ -275,8 +298,17 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
         L_T_E_H = Ip - dt*(Dp*AH);         %Linear operator of heat advection
         RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
-        H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching or solving the linear bnd value problem
+        H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
     
+        %%%%
+        %% Advection of tracer
+        Ac = build_adv_op(vm,trc,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
+        L_c_E = Ip - dt*(Dp * Ac);% Explicit operator of tracer advection
+        RHS_c = L_c_E * trc + (fn_c) * dt; %Forming the vector B of Ax = B
+        trc = solve_lbvp(L_c_I,RHS_c, B_c, Param.c.g,N_c); %time marching the tracer equation
+        %%%%        
+        
         %% calculate net melt and melt transported to "ocean"
         % make two planes to measure the melt transported through
         % plane 1
@@ -317,14 +349,21 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
         end
-        
+ 
+         % create the video writer with fps of the original video
+         Data_result= sprintf('../figures/test.avi');%sprintf('%s_analyzed.avi',fffilename);
+         writerObj = VideoWriter(Data_result);
+         writerObj.FrameRate = 30; % set the seconds per image
+         open(writerObj); % open the video writer
     
         %% PLOTTING
          if mod(i,20) == 0
              i
-
             %streamfunction plot
-            figure(4);
+            h=figure(4);
+            
+            % Enlarge figure to full screen.
+            
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
             subplot(3,3,1)
@@ -342,6 +381,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
 
             %melt fraction plot
             subplot(3,3,2)
+            sgtitle(sprintf('time=%.3f years',tTot));
             cla;
             axis equal
             hold on
@@ -352,13 +392,21 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             ylabel('z-dir, 1')
             c.Label.String = 'Melt fraction, 1';
             
-            %average in radial direction melt fraction plot along z           
-            subplot(3,3,3)
+            %Tracer location concentration plot          
+            ax3 = subplot(3,3,3)
             cla;
-            plot(mean(reshape(phi,Grid.p.Ny,Grid.p.Nx),2),Grid.p.yc)
-            ylabel('z-dir, 1');
-            xlabel('Average melt fraction');
- 
+            axis equal
+            hold on
+            c = colorbar('NorthOutside');
+            contour(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),'r','LevelList',5e-2),hold on
+            trc_plot = trc; %trc_plot(trc<=1e-8) = nan;
+            contourf(X,Y,reshape(trc_plot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2)
+            xlabel('x-dir, 1')
+            ylabel('z-dir, 1')
+            c.Label.String = 'Tracer Conc.';
+            colormap(ax3,flipud(gray))
+            
+            
             %average in radial  direction temperature in fraction plot along z
             subplot(3,3,4)
             cla;
@@ -381,8 +429,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             axis equal
             contourf(X,Y,reshape(kappaPrimePlot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
             c = colorbar('NorthOutside');
-            xlabel('x-dir, m')
-            ylabel('z-dir, m')
+            xlabel('x-dir, 1')
+            ylabel('z-dir, 1')
             c.Label.Interpreter = 'latex';
             c.TickLabelInterpreter = 'latex';
             c.Label.String = 'Non-dim thermal conductivity';
@@ -422,6 +470,15 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             xlabel('x-dir, 1')
             ylabel('z-dir, 1')
             
+            saveas(h,sprintf('../figures/fig%d.png',i));
+            
+            
+            % convert the image to a frame
+            Frame = getframe(gcf) ;
+            frameimg = Frame ;
+            writeVideo(writerObj, frameimg);
          end
+     % close the writer object
+     close(writerObj);
     end
 end
