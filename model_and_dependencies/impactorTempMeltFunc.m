@@ -19,6 +19,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
+    set(groot, 'DefaultFigureVisible', 'off');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
@@ -135,7 +136,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     %initializing tracer with max conc. unity in a certain region: between
     %dimensionless z = 0.8 to 1.0
     trc = ones(Grid.p.N,1); %initializing tracer with max conc. unity
-    trc(Y(:)<0.8) = 0;
+    trc(Y(:)<0.975) = 0;   %How thick is the organics layer? 1 - 0.975 dimensional units
     
     trc(phiGr>0.1) = 1;%Melted region being initialized
     trc(Y(:)<0.1) = 0; %Taking out the ocean
@@ -213,7 +214,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     phiDrain1Vec = []; 
     phiDrain2Vec = [];
     phiFracRem = [];
-
+    frameno = 0; %%%%Initializing frame number for plotting
+    
     %% temporal evolution
     for i = 1:it
         
@@ -342,26 +344,20 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1))
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
         end
- 
-         % create the video writer with fps of the original video
-         Data_result= sprintf('../figures/test.avi');%sprintf('%s_analyzed.avi',fffilename);
-         writerObj = VideoWriter(Data_result);
-         writerObj.FrameRate = 30; % set the seconds per image
-         open(writerObj); % open the video writer
     
         %% PLOTTING
          if mod(i,20) == 0
              i
             %streamfunction plot
-            h=figure(4);
-            
+            h=figure('Visible', 'off'); %For visibility: h=figure(4);
+            set(gcf,'units','points','position',[0,0,3125,1250])
             % Enlarge figure to full screen.
             
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
@@ -393,7 +389,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             c.Label.String = 'Melt fraction, 1';
             
             %Tracer location concentration plot          
-            ax3 = subplot(3,3,3)
+            ax3 = subplot(3,3,3);
             cla;
             axis equal
             hold on
@@ -404,7 +400,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             xlabel('x-dir, 1')
             ylabel('z-dir, 1')
             c.Label.String = 'Tracer Conc.';
-            colormap(ax3,flipud(gray))
+            colormap(ax3,flipud(gray));
             
             
             %average in radial  direction temperature in fraction plot along z
@@ -469,16 +465,31 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             c.Label.String = 'Total Bouyancy, 1';
             xlabel('x-dir, 1')
             ylabel('z-dir, 1')
-            
+            axis equal
             saveas(h,sprintf('../figures/fig%d.png',i));
             
             
             % convert the image to a frame
-            Frame = getframe(gcf) ;
-            frameimg = Frame ;
-            writeVideo(writerObj, frameimg);
+            frameno = frameno + 1;
+            FF(frameno) = getframe(gcf) ;
          end
-     % close the writer object
-     close(writerObj);
     end
+%%%%
+%% Making a video out of frames
+ % create the video writer with fps of the original video
+ Data_result= sprintf('../figures/case%s_t%syrs.avi',num2str(fn),num2str(tTot));
+ writerObj = VideoWriter(Data_result);
+ writerObj.FrameRate = 20; % set the seconds per image
+ open(writerObj); % open the video writer
+% write the frames to the video
+for i=1:frameno
+    %'Frame number'; i
+    % convert the image to a frame
+    frameimg = FF(i) ;
+    writeVideo(writerObj, frameimg);
+end
+% close the writer object
+close(writerObj);    
+    %%%%
+    
 end
