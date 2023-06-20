@@ -16,9 +16,12 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             Evan Carnahan, evan.carnahan@utexas.edu, 11/20/2022
     %}
 
+    set(groot,'defaultAxesFontName','Times')
+    set(groot,'defaultAxesFontSize',20)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
+    set(groot, 'DefaultFigureVisible', 'off');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
@@ -112,15 +115,6 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
     phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
     
-    %%%%
-    %initializing tracer with max conc. unity in a certain region: between
-    %dimensionless z = 0.4 to 0.6
-    trc = zeros(Grid.p.N,1); %initializing tracer with max conc. unity
-    trc(Y(:)>0.4) = 1; 
-    trc(Y(:)>0.6) = 0;
-    
-    %%%%
-    
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3);
     % First sum is for porosity in the z direction since volume is same
@@ -139,7 +133,17 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     T = TGr(:); %Making Temperature array from grid, N by 1
     phi = phiGr(:); %Making porosity array from grid, N by 1
     H = porNonH_fun(phi,T); %Dimensionless porosity array
-  
+
+    %%%%
+    %initializing tracer with max conc. unity in a certain region: between
+    %dimensionless z = 0.8 to 1.0
+    trc = ones(Grid.p.N,1); %initializing tracer with max conc. unity
+    trc(Y(:)<0.975) = 0;   %How thick is the organics layer? 1 - 0.975 dimensional units
+    
+    trc(phiGr>0.1) = 1;%Melted region being initialized
+    trc(Y(:)<0.1) = 0; %Taking out the ocean
+    %%%%
+    
     %% build operators
     Zp = zeros(Grid.p.N); %N by N Zero matrix
     Ip = speye(Grid.p.N); %N by N indentity matrix
@@ -212,9 +216,10 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     phiDrain1Vec = []; 
     phiDrain2Vec = [];
     phiFracRem = [];
-
+    frameno = 0; %%%%Initializing frame number for plotting
+    
     %% temporal evolution
-    for i = 1:it
+    for i = 1:1000
         
         % calculate porosity from enthalpy
         [T,phi] = enthMelt(H,mixZone,nonT_fun,phi_fun,TWater_fun);
@@ -341,21 +346,84 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1))
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
         end
-        
     
         %% PLOTTING
          if mod(i,20) == 0
+            greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
+            reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
+            blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
+            
              i
-
             %streamfunction plot
-            figure(4);
+            h=figure('Visible', 'off'); %For visibility: h=figure(4);
+            set(gcf,'units','points','position',[0,0,3125,1250])
+            % Enlarge figure to full screen.
+            [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
+            set(gcf, 'Position', [50 50 1500 600])
+            ax1 = subplot(1,2,1);
+            cla;
+            hold on
+            axis equal
+            Tplot_dummy=Tplot;
+            Tplot_dummy(phi>termFrac) = nan;
+            contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,Tplot*DT+T_t,40,'linestyle','none'),view(2),hold on
+            c1 = colorbar('EastOutside');
+            caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
+            cStrVal = linspace(min(PSI(:)),max(PSI(:)),10);
+            contour(Grid.p.xf*d/1e3,Grid.p.yf*d/1e3,PSI,'k','LevelList',cStrVal);
+            c1.Label.String = 'Temperature, K';
+            xlabel('x-dir, km');
+            ylabel('z-dir, km');
+            colormap(reds);
+
+            %melt fraction plot
+            subplot(3,3,2)
+            sgtitle(sprintf('time=%.3f years',tTot));
+            cla;
+            axis equal
+            hold on
+            contourf(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
+            c = colorbar('NorthOutside');
+            contour(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),'r','LevelList',5e-2)
+            xlabel('x-dir, 1')
+            ylabel('z-dir, 1')
+            c.Label.String = 'Melt fraction, 1';
+            phi_dummy=phi; phi_dummy(phi<=termFrac) = nan;          
+            contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,reshape(phi_dummy,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
+            c2 = colorbar(ax1,'WestOutside')
+            %colormap(ax1,blues)
+            xlabel('x-dir, km')
+            ylabel('z-dir, km')
+            c2.Label.String = 'Melt fraction, 1';
+            
+            colormap(blues)
+            
+            %Tracer location concentration plot  
+            
+            % Create green-to-red colormap
+            ax3 = subplot(1,2,2);
+            cla;
+            axis equal
+            hold on
+            c3 = colorbar('EastOutside');
+            c4 = colorbar('WestOutside');
+            %contour(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),'r','LevelList',5e-2),hold on
+            trc_plot = trc; %trc_plot(trc<=1e-8) = nan;
+            contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,reshape(trc_plot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2)
+            xlabel('x-dir, km')
+            ylabel('z-dir, km')
+            c3.Label.String = 'Tracer Conc.';
+            colormap(ax3,greens);
+            saveas(h,sprintf('../figures/res_fig%d.png',i));
+            
+            %{
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
             subplot(3,3,1)
@@ -373,6 +441,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
 
             %melt fraction plot
             subplot(3,3,2)
+            sgtitle(sprintf('time=%.3f years',tTot));
             cla;
             axis equal
             hold on
@@ -383,19 +452,21 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             ylabel('z-dir, 1')
             c.Label.String = 'Melt fraction, 1';
             
-            %average in radial direction melt fraction plot along z           
-            subplot(3,3,3)
+            %Tracer location concentration plot          
+            ax3 = subplot(3,3,3);
             cla;
             axis equal
             hold on
             c = colorbar('NorthOutside');
             contour(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),'r','LevelList',5e-2),hold on
-            trc_plot = trc; trc_plot(trc<=1e-8) = nan;
-            contourf(X,Y,reshape(trc_plot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none','colormap',),view(2)
+            trc_plot = trc; %trc_plot(trc<=1e-8) = nan;
+            contourf(X,Y,reshape(trc_plot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2)
             xlabel('x-dir, 1')
             ylabel('z-dir, 1')
             c.Label.String = 'Tracer Conc.';
- 
+            colormap(ax3,flipud(gray));
+            
+            
             %average in radial  direction temperature in fraction plot along z
             subplot(3,3,4)
             cla;
@@ -418,8 +489,8 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             axis equal
             contourf(X,Y,reshape(kappaPrimePlot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
             c = colorbar('NorthOutside');
-            xlabel('x-dir, m')
-            ylabel('z-dir, m')
+            xlabel('x-dir, 1')
+            ylabel('z-dir, 1')
             c.Label.Interpreter = 'latex';
             c.TickLabelInterpreter = 'latex';
             c.Label.String = 'Non-dim thermal conductivity';
@@ -458,7 +529,32 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             c.Label.String = 'Total Bouyancy, 1';
             xlabel('x-dir, 1')
             ylabel('z-dir, 1')
+            axis equal
+            saveas(h,sprintf('../figures/fig%d.png',i));
             
+            %}
+            
+            % convert the image to a frame
+            frameno = frameno + 1;
+            FF(frameno) = getframe(gcf) ;
          end
     end
+%%%%
+%% Making a video out of frames
+ % create the video writer with fps of the original video
+ Data_result= sprintf('../figures/case%s_t%syrs.avi',num2str(fn),num2str(tTot));
+ writerObj = VideoWriter(Data_result);
+ writerObj.FrameRate = 20; % set the seconds per image
+ open(writerObj); % open the video writer
+% write the frames to the video
+for i=1:frameno
+    %'Frame number'; i
+    % convert the image to a frame
+    frameimg = FF(i) ;
+    writeVideo(writerObj, frameimg);
+end
+% close the writer object
+close(writerObj);    
+    %%%%
+    
 end
