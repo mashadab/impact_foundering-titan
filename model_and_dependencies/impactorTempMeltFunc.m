@@ -142,16 +142,17 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     trc1 = ones(Grid.p.N,1); %initializing tracer with max conc. unity
     trc1(Y(:)<0.975) = 0;    %How thick is the organics layer? 1 - 0.975 dimensional units
     
-    trc1(phiGr>0.1) = 1;%Melted region being initialized
-    trc1(Y(:)<0.1) = 0; %Taking out the ocean
+    trc1(phiGr>0.1) = 1;     %Melted region being initialized
+    trc1(Y(:)<0.1) = 0;      %Taking out the ocean
     
     %Clathrates tracer
     %dimensionless z = 0.8 to 1.0
     trc2 = ones(Grid.p.N,1); %initializing tracer with max conc. unity
-    trc2(Y(:)<0.1) = 0;      %How thick is the clathrate layer? 1 - 0.975 dimensional units
+    trc2(Y(:)<0.9) = 0;      %How thick is the clathrate layer? 1 - 0.975 dimensional units
     
     trc2(phiGr>0.1) = 1;%Melted region being initialized
-    trc1(Y(:)<0.1) = 0; %Taking out the ocean
+    trc2(Y(:)<0.1)  = 1; %second layer
+    trc2(Y(:)<0.0)  = 0; %Taking out the ocean
     
     %%%%
     
@@ -316,12 +317,17 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
     
         %%%%
-        %% Advection of tracer
-        Ac = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        %% Advection of organic tracer fn_c is the same as natural BCs
+        Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
         L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
-        L_c_E = Ip - dt*(Dp * Ac);% Explicit operator of tracer advection
-        RHS_c = L_c_E * trc1 + (fn_c) * dt; %Forming the vector B of Ax = B
-        trc1 = solve_lbvp(L_c_I,RHS_c, B_c, Param.c.g,N_c); %time marching the tracer equation
+        L_c_E1 = Ip - dt*(Dp * Ac1);% Explicit operator of tracer advection
+        RHS_c1 = L_c_E1 * trc1 + (fn_c) * dt; %Forming the vector B of Ax = B
+        trc1 = solve_lbvp(L_c_I,RHS_c1, B_c, Param.c.g,N_c); %time marching the tracer equation
+        
+        Ac2 = build_adv_op(vm,trc2,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
+        RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
+        trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
         %%%%        
         
         %% calculate net melt and melt transported to "ocean"
@@ -378,7 +384,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
-            ax1 = subplot(1,3,1);
+            ax1 = subplot(1,4,1);
             cla;
             hold on
             axis equal
@@ -394,7 +400,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             colormap(ax1,reds);
 
             %melt fraction plot
-            ax2 = subplot(1,3,2);
+            ax2 = subplot(1,4,2);
             t = sgtitle(sprintf('time=%.3f years',tTot)); t.FontSize = 25;
             cla;
             axis equal
@@ -408,10 +414,9 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             ylabel('z-dir, km');
             c2.Label.String = 'Melt fraction, 1';
             
-            %Tracer location concentration plot  
-            
+            %Organics tracer location concentration plot  
             % Create green-to-red colormap
-            ax3 = subplot(1,3,3);
+            ax3 = subplot(1,4,3);
             cla;
             axis equal
             hold on
@@ -421,10 +426,27 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
             contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,reshape(trc1_plot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2)
             xlabel('x-dir, km');
             ylabel('z-dir, km');
-            c3.Label.String = 'Tracer Conc., 1';
+            c3.Label.String = 'Organics Conc., 1';
             colormap(ax3,greens);
-            saveas(h,sprintf('../figures/res_fig%d.png',i));
             
+            %Clathrates tracer location concentration plot
+            % Create green-to-red colormap
+            ax4 = subplot(1,4,4);
+            cla;
+            axis equal
+            hold on
+            c4 = colorbar('NorthOutside');
+            %contour(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),'r','LevelList',5e-2),hold on
+            trc2_plot = trc2; %trc1_plot(trc1<=1e-8) = nan;
+            contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,reshape(trc2_plot,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2)
+            xlabel('x-dir, km');
+            ylabel('z-dir, km');
+            c4.Label.String = 'Clathrates conc., 1';
+            colormap(ax4,flipud(gray));
+            
+            if i<100
+                saveas(h,sprintf('../figures/res_fig%d.png',i));            
+            end
             %{
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
