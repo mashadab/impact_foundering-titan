@@ -123,7 +123,8 @@ function impactorTempMeltFuncTitan(fn,eta_0,E_a)
     %%%%
     
     % get initial melt volumes: phiOrig, m^3
-    phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3);
+    phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
+    % phiOrig = sum(sum(phiGr(80:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
     % First sum is for porosity in the z direction since volume is same
     % Second sum is after multiplying the grid volume at bottom cells
     % Lastly d^3 comes from the redimensionalization to calculate melt volumes
@@ -163,7 +164,7 @@ function impactorTempMeltFuncTitan(fn,eta_0,E_a)
     trc2(Y(:)<0.875) = 0;      %How thick is the clathrate layer? 1 - 0.975 dimensional units
     
     trc2(phiGr>0.1) = 1;%Melted region being initialized
-    %trc2(Y(:)<0.1)  = 1; %second layer
+    trc2(Y(:)<0.125)  = 1; %second layer
     trc2(Y(:)<0.0)  = 0; %Taking out the ocean
     
     %%%%
@@ -391,7 +392,7 @@ function impactorTempMeltFuncTitan(fn,eta_0,E_a)
              i
             %streamfunction plot
             h=figure('Visible', 'off'); %For visibility: h=figure(4);
-            %set(gcf,'units','points','position',[0,0,3125,1250])
+            set(gcf,'units','points','position',[0,0,3125,1250])
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
