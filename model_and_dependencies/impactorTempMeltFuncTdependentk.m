@@ -1,4 +1,4 @@
-function impactorTempMeltFunc(fn,eta_0,E_a)
+function impactorTempMeltFuncTdependentk(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -69,7 +69,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
     % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
     c_fun = @(nonT) a+b*(DT*nonT+T_t); %specific heat function, J/(kg K)
-    kappa_b = 3.3; %thermal conductivity of ice, set to be consistent with Cox and Bauer, 2015
+    kappa_b = 612/273.16; %thermal conductivity of ice, set to be consistent with Wolfenbarger et al, 2021
     D_T = kappa_b/(rho_i *c_fun(1)); % thermal diffusicvity of ice, m^2/s
     c_pi = c_fun(1); %constant specific heat, J/(kg K)
     
@@ -87,7 +87,7 @@ function impactorTempMeltFunc(fn,eta_0,E_a)
     nonH_fun = @(nonT) nonT - 1; 
     nonT_fun = @(nonH) nonH + 1;
     % condictivity is weighted average of mixture components
-    porKappaPrime_fun = @(phi,nonT) (phi*kappa_w + (1-phi).*kappa_b)/kappa_b; %thermal cond. W/(m-K)
+    porKappaPrime_fun = @(phi,nonT) (phi*kappa_w + (1-phi).*(612./(nonT .* DT + T_t)))/kappa_b; %thermal cond. W/(m-K)
     porNonH_fun = @(phi,nonT) (1-phi).*(nonH_fun(nonT)) + ...
         (phi*rho_w)./(rho_i*c_pi*DT).*(latHeat+c_pw*DT*(nonT-1)); %Dimless enthalpy
     
