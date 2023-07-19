@@ -103,10 +103,9 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
     
-    Pi_1 = eta_0 * kc/(mu_f * d^2);      %For updated hydraulic condcutivity of total mass balance
+    Pi_1 = eta_0 * kc/(mu_f * d^2);        %For updated hydraulic condcutivity of total mass balance
     Pi_3 = kc*d*rho_f*grav/(mu_f * D_T); %For RHS of mass balance (fluid diffusion over heat diffusion)
-    Pi_5 = d^3 * rho_i * grav / (eta_0 * D_T);      %Pi 5 from the notes
-    Pi_6 = mixZone;                      %Pi 6 from the notes
+    Pi_5 = d^3 * rho_i * 
     %%%%%%%%%
     
     % non-dimensionalize temperature
@@ -337,7 +336,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.8;
         p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
 
-        vf = vm + Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
+        vf = vm + Pi_1 * phi.^(mm-1) .* ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the velocity
         
         %% non-linear thermal conducitivity matricies
         kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
@@ -348,10 +347,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         kappaFace = comp_mean(kappaPrimePlot,1,1,Grid.p);
                 
         %% Advection of enthalpy, diffusion of temperature
-        %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
-        AHs = build_adv_op(vm,(1-phi).*T,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the solid enthalpy from center to faces %%%%%%%
-        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the fluid enthalpy from center to faces %%%%%%%
-        AH  = AHs + AHf; %Combine the advection operator
+        AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
         
         L_T_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
@@ -360,7 +356,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
     
         %%%%
-        %{
         %% Advection of organic tracer fn_c is the same as natural BCs
         Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
         L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
@@ -372,7 +367,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
         RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
-        %}
         %%%%        
         
         %% calculate net melt and melt transported to "ocean"
