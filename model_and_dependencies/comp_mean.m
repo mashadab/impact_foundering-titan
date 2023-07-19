@@ -52,11 +52,4 @@ if (p == -1) | (p == 1)
 else
     error('This power does not have significance.')
 end
-           
-           
-           
-           
-           
-           
-           
-           
+            

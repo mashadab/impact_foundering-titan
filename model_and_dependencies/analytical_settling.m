@@ -3,7 +3,7 @@ set(groot, 'DefaultFigureVisible', 'on');
 clc; close all; clear all;
 %% Input variables
 %Thermodynamics
-Ti =  223;       %surrounding ice temperature [K]
+Ti =  223.16;       %surrounding ice temperature [K]
 
 %Settling
 %{
@@ -15,7 +15,7 @@ d_ice= [50, 80, 100, 150]' ;  %thickness of ice sheet [km]
 
 %Europa
 grav= 1.315; %Titan = 1.352, [m/s^2]
-V  = 0.1%linspace(0.1,1000,1000); %volume of the melt [km^3] 
+V  = 31%linspace(0.1,1000,1000); %volume of the melt [km^3] 
 d_ice= [10]' ;  %thickness of ice sheet [km]
 % Calculations 
 R    = (3.*V./(4.*pi)).^(1/3);  %calculate radius of the blob [km]
@@ -38,6 +38,8 @@ tau_max = @(beta)  1./6 + 1./(6.*beta) - 1./(3.*(2.*pi).^0.5.*beta.^(1.5));
 figure();
 beta_array = logspace(-1,3,1000);
 loglog(beta_array,tau_max(beta_array))
+xlabel 'Beta'
+ylabel 'Dim-less time, Tau'
 
 
 beta = L/(cp_i*(Tm - Ti)); %Stefan number
@@ -46,9 +48,10 @@ S = linspace(0,1-1e-10,10000); %S is the dimless location of the front w.r.t ini
 tau  =  (3.*S.^2 - 2.*S.^3)./6 + S.^2 ./ (6.*beta) - S.^2./(45.*beta.^2.*(1-S)); %dimless time
 
 figure();
-plot(S,tau);
-ylim([0 0.3])
-
+plot(tau,S);
+xlim([0 0.3])
+ylabel 'S'
+xlabel 'Dimless time, tau'
 t_solid = tau_max(beta) * beta * (R*1e3).^2 / (kappa * yr2s) %redimensionalizing time
 
 %% Calculate Settling: Stokes settling
@@ -74,22 +77,24 @@ V_settling_var = (2/9)*(rho_melt - rho_matrix).*(Var_R*1e3).^2.*grav./mu.*(yr2s/
 timestamp_var  = tau .* beta * (R*1e3).^2 ./ (kappa * yr2s) %redimensionalizing time array [years]
 
 figure();
-loglog(V_settling_var,timestamp_var)
+loglog(timestamp_var,V_settling_var)
+ylabel 'V [km/year]'
+xlabel 'Time [year]'
 
 i = 1;
 z = zeros(1,9999);
 while true
     
-    depth_var(i) = V_settling_var(i).*(timestamp_var(i) - timestamp_var(i+1));
+    depth_var(i) = V_settling_var(i).*(timestamp_var(i+1) - timestamp_var(i)); %instantaneous depth [km]
     
     i = i+1
     
-    if i >= 9999, break ; end
+    if i >= 10000, break ; end
     
 end 
     
-    
-        
-       
 
-
+figure();
+loglog(timestamp_var(:,1:end-1),depth_var)
+xlabel 'T [years]'
+ylabel 'Depth [km]'
