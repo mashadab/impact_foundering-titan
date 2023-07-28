@@ -1,4 +1,4 @@
-function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
+function driver_func_Simple_Settling(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -22,18 +22,12 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
-    set(groot, 'DefaultFigureVisible', 'off');
+    set(groot, 'DefaultFigureVisible', 'on');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
-    if any([all(fn == '03321') all(fn == '03800') all(fn == '04304')])
+    if fn == '1'
         d = 10*1e3; % ice shell thickness, m  
-    elseif any([all(fn == '03314') all(fn == '03402') all(fn == '03400')])
-        d = 20*1e3; % ice shell thickness, m
-    elseif any([all(fn == '03313') all(fn == '03701')])
-        d = 30*1e3; % ice shell thickness, m
-    elseif all(fn == '03330')
-        d = 40*1e3; % ice shell thickness, m
     end
 
     % threshold of intial fluid left in ice shell to stop simulation at
@@ -41,8 +35,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     
     % load simulations from initial conditions folder (Digitized output via
     % Python from iSALE simulations)
-    fp = '../initial_conditions/ic'; %loading the initial conditions
-    load([fp fn '_100.mat'],'T','phi'); %loading porosity phi and temp T
 
     %% Set physical parameters and make dimensionless scales
     % physical parameters for ice
@@ -62,12 +54,10 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     rho_w = 1e3; % density of water, kg/m^3
     c_pw = 4.186e3; % specific ehat of water, J/kg
     kappa_w = 0.56; %thermal diffusivity of water, W/(m K)
-    porViscPar = 0;%How much a certain amt of melt reduce viscosity of ice  %%%% effective solid visc
+    porViscPar = 45;%How much a certain amt of melt reduce viscosity of ice
     
     % temperature and melt fraction dependent viscosity, Pa s
-    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
-    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
-    
+    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
     % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
     c_fun = @(nonT) a+b*(DT*nonT+T_t); %specific heat function, J/(kg K)
@@ -82,7 +72,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     
     phi_fun = @(nonH) nonH * (rho_i*c_pi*DT)/(rho_w*latHeat); %porosity: fully ice = 0 to fully water = 1
     TWater_fun = @(nonH) nonH * (rho_i*c_pi)/(rho_w*c_pw) - latHeat/(DT*c_pw) + 1; %Dim Temperature, K
-    compBouy_fun = @(phi)  phi*rho_i*(rho_w/rho_i-1)*(grav*d^3/(eta_0*D_T)); %Dimless RHS of mom balance
+    compBouy_fun = @(phi)  phi*rho_i*(rho_w/rho_i-1)*(grav*d^3/(eta_0*D_T)); %Dimless RHS of mass balance
                                                                              %Ice is lighter than water
     
     % conversion in dimensionless units with constant specific heat
@@ -97,20 +87,8 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     t_c = d^2/D_T; % convection time scale, s
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
-    %%%%%%%%%
-    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
-    mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
-    rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
-    
-    
-    Pi_1 = eta_0 * kc/(mu_f * d^2);      %For updated hydraulic condcutivity of total mass balance
-    Pi_3 = kc*d*rho_f*grav/(mu_f * D_T); %For RHS of mass balance (fluid diffusion over heat diffusion)
-    Pi_5 = d^3 * rho_i * grav / (eta_0 * D_T);      %Pi 5 from the notes
-    Pi_6 = mixZone;                      %Pi 6 from the notes
-    %%%%%%%%%
-    
-    % non-dimensionalize temperature
-    T = (T - T_t)/DT;
+%     % non-dimensionalize temperature
+%     T = (T - T_t)/DT;
 
     % thermal condutvity in convective ocean, set to maintain vertical
     % isotherm in ocean
@@ -127,8 +105,15 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
     
     % convert inital condition to grid
-    TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
-    phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
+    TGr = ones(grRes,Grid.p.Nx);     %Temp on the grid, K (all at melting temperature)
+    phiGr = zeros(grRes,Grid.p.Nx);    %porosity on the grid (all ice except melt)
+    
+    %Region of initial blob
+    Y0 = 0.5; R = 0.05
+    
+    (X(:).^2+(Y(:)-Y0).^2< R^2) = 1;    %melt inside one giant blob
+ 
+    %blob initialization
     
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
@@ -140,7 +125,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
    
     % build ocean layer
     TOc = ones(ocTh,Grid.p.Nx);    %Temperature of ocean, K
-    phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
+    phiOc = zeros(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
     
     % combine ice shell and ocean to get the entire domain fields
     TGr = [TOc; TGr]; %Temperature, K
@@ -250,8 +235,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         % calculate porosity from enthalpy
         [T,phi] = enthMelt(H,mixZone,nonT_fun,phi_fun,TWater_fun);
         H = porNonH_fun(phi,T);
-        min(H)
-        max(H)
+        
         %% Bouyancy force as the body force to Stokes flow
         %temp bouyancy
         Tplot= reshape(T,Grid.p.Ny,Grid.p.Nx);
@@ -266,6 +250,10 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         phiDiag = diag(comp_mean(phiPlot,1,1,Grid.p));
         phiY = phiDiag(Grid.p.Nfx+1:Grid.p.Nf);
         fs_por = compBouy_fun(phiY); %calculating RHS of momentum balance
+        
+        % higher porosity acts against Ra bouyancy force 
+        fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
+        fs = [zeros(Grid.p.Nfx,1); fsVec; zeros(Grid.p.N,1)];
         
         %Gxx variable viscosity matrix
         nxxVec = zeros(Grid.x.Nfx,1);
@@ -291,57 +279,26 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         phiVec = [nxxVecPhi;nyyVecPhi;ncVecPhi];
         
         % merge temperature and melt fraction viscosities
-        viscVec = barrViscPhase(tempVec,phiVec,barrViscPhi); %%%% effective solid visc;
+        viscVec = barrViscPhase(tempVec,phiVec,barrViscPhi);
         viscVec(isnan(viscVec)) = 0; %Due to mean, 1/0 appear at corners so making them 0
         viscMat = spdiags(viscVec,0,length(viscVec),length(viscVec));
         
-        %%%%
-        GG = 1; %G from compaction viscosity relation
-        mm = 1; %m from compaction viscosity relation
-        Zd_vec =  GG * (1-phi)./(phi+1e-5).^mm - 2/3*(1-phi); %dim-less compaction viscosity
-
-        %size(Zd_vec) 
-        %size(comp_mean_corners(Zd_vec,-1,Grid.p))
-        Zd = spdiags(Zd_vec,0,Grid.p.N,Grid.p.N);   %transforming into a matrix
-        nn  = 3; %porosity-permeability relation
-        
-        Kdprime_vec = comp_mean(phiPlot.^nn,1,1,Grid.p);
-        Kdprime = spdiags(Kdprime_vec,0,length(Kdprime_vec),length(Kdprime_vec)); %dimensional permeability
-
-        % higher porosity acts against Ra bouyancy force 
-        fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
-        
-        fs_mass = - Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
-        
-        fs = [zeros(Grid.p.Nfx,1); fsVec; fs_mass];  %%%%Added RHS term for total mass balance
-        
-        %%%%
-
         %% Stokes Flow calcualtion
         % make linear operators
         tau = D*2*viscMat*Edot;
-        %L = [tau + Gp * Zd * Dp  ,-Gp;             
-        %    Dp                  ,-Dp * Kdprime * Gp];
-%         L = [tau,Gp;                             %Two-phase slurry model
-%             Dp,Zp];
-        L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
-            Dp,                    -Dp * Pi_1* Kdprime * Gp];
+        L = [tau,Gp;
+            Dp,Zp];
         % solve for flow velocities
         u = solve_lbvp(L,fs,B,Param.g,N);
         vx = u(1:Grid.p.Nfx);
         vy = u(Grid.p.Nfx+1:(Grid.p.Nfx+Grid.p.Nfy));
-        vm = [vx;vy];       %velocity of the solid phase, m/s
-        vmax= max(abs(vm)); %largest solid velocity
-        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
-
-        
-        vf = vm + Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
-        vfmax= max(abs(vf)); %largest solid velocity        
-        
+        vm = [vx;vy];       %velocity of the two-phase mixture, m/s
+        vmax= max(abs(vm)); %largest velocity
         % Adaptive time stepping based on competition b/w CFL and Neumann
         % conditions in each direction; CFL number set to 0.8
-        dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,Grid.p.dx/vfmax,Grid.p.dy/vfmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.1;
-       
+        dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.8;
+        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
+        
         %% non-linear thermal conducitivity matricies
         kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
         % select near boundary ocean cells
@@ -351,19 +308,14 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         kappaFace = comp_mean(kappaPrimePlot,1,1,Grid.p);
                 
         %% Advection of enthalpy, diffusion of temperature
-        %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
-        AHs = build_adv_op(vm,(1-phi).*T,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the solid enthalpy from center to faces %%%%%%%
-        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the fluid enthalpy from center to faces %%%%%%%
-        AH  = AHs + AHf; %Combine the advection operator
-        
+        AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
         L_T_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
         L_T_E_H = Ip - dt*(Dp*AH);         %Linear operator of heat advection
         RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
-        
+    
         %%%%
-        %{
         %% Advection of organic tracer fn_c is the same as natural BCs
         Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
         L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
@@ -375,7 +327,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
         RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
-        %}
         %%%%        
         
         %% calculate net melt and melt transported to "ocean"
@@ -611,7 +562,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
             FF(frameno) = getframe(gcf) ;
          end
     end
-    
 %%%%
 %% Making a video out of frames
  % create the video writer with fps of the original video
