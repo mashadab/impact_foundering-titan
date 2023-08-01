@@ -108,7 +108,7 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
     %phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
     
     % convert inital condition to grid
-    T_avg = 243.16; %Average temperature of ice shell [in K]
+    T_avg = 263.16; %Average temperature of ice shell [in K]
     TGr = (T_avg-T_t)/DT.*ones(grRes,Grid.p.Nx);     %Temp on the grid, K (all at melting temperature) 
     phiGr = zeros(grRes,Grid.p.Nx);  %porosity on the grid (all ice except melt)
     
@@ -372,7 +372,7 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >12000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >1000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
