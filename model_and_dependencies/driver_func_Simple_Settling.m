@@ -26,7 +26,7 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
-    if fn == '1'
+    if fn == 'cold1'
         d = 10*1e3; % ice shell thickness, m  
     end
 
@@ -108,7 +108,8 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
     %phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
     
     % convert inital condition to grid
-    TGr = ones(grRes,Grid.p.Nx);     %Temp on the grid, K (all at melting temperature)
+    T_avg = 243.16; %Average temperature of ice shell [in K]
+    TGr = (T_avg-T_t)/DT.*ones(grRes,Grid.p.Nx);     %Temp on the grid, K (all at melting temperature) 
     phiGr = zeros(grRes,Grid.p.Nx);  %porosity on the grid (all ice except melt)
     
     
@@ -133,8 +134,9 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
     phi = phiGr(:); %Making porosity array from grid, N by 1
     
     %Region of initial blob
-    Y0 = 0.75; Radius = 0.05;  
+    Y0 = 0.75; Radius = 0.1;  
     phi(X(:).^2+(Y(:)-Y0).^2< Radius^2) = 1;    %melt inside one giant blob
+    T(X(:).^2+(Y(:)-Y0).^2< Radius^2)   = 1;    %Temp inside one giant blob
     phiGr = reshape(phi,Grid.p.Ny,Grid.p.Nx);
     
     contourf(X,Y,phiGr)
@@ -370,7 +372,7 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >6000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >12000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...

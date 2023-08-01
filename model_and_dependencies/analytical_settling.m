@@ -3,7 +3,7 @@ set(groot, 'DefaultFigureVisible', 'on');
 clc; close all; clear all;
 %% Input variables
 %Thermodynamics
-Ti =  223.16;       %surrounding ice temperature [K]
+Ti =  263.16;       %surrounding ice temperature [K]
 
 %Settling
 %{
@@ -15,10 +15,11 @@ d_ice= [50, 80, 100, 150]' ;  %thickness of ice sheet [km]
 
 %Europa
 grav= 1.315; %Titan = 1.352, [m/s^2]
-V  = 31%linspace(0.1,1000,1000); %volume of the melt [km^3] 
-d_ice= [10]' ;  %thickness of ice sheet [km]
+%V  = 31%linspace(0.1,1000,1000); %volume of the melt [km^3] 
+d_ice= [7.5]' ;  %thickness of ice sheet [km]
 % Calculations 
-R    = (3.*V./(4.*pi)).^(1/3);  %calculate radius of the blob [km]
+%R    = (3.*V./(4.*pi)).^(1/3);  %calculate radius of the blob [km]
+R = 1; %Radius [in km]
 yr2s = 365.25*24*60*60; %year to second conversion [s/year]
 
 %% Thermodynamic parameters
@@ -75,6 +76,8 @@ labels=num2str(d_ice,'$$d_{ice}=$$%d km');
 Var_R = (1 - S).*R   %Transient radius of the drop
 V_settling_var = (2/9)*(rho_melt - rho_matrix).*(Var_R*1e3).^2.*grav./mu.*(yr2s/1e3); %[km/year]
 timestamp_var  = tau .* beta * (R*1e3).^2 ./ (kappa * yr2s) %redimensionalizing time array [years]
+timestamp_var(timestamp_var<0)  = 0;
+V_settling_var(V_settling_var<0)= 0;
 
 figure();
 loglog(timestamp_var,V_settling_var)
@@ -83,18 +86,36 @@ xlabel 'Time [year]'
 
 i = 1;
 z = zeros(1,9999);
+depth_var(1) = 0
 while true
     
-    depth_var(i) = V_settling_var(i).*(timestamp_var(i+1) - timestamp_var(i)); %instantaneous depth [km]
+    depth_var(i+1) = depth_var(i)+V_settling_var(i).*(timestamp_var(i+1) - timestamp_var(i)); %instantaneous depth [km]
     
     i = i+1
     
     if i >= 10000, break ; end
     
 end 
-    
 
 figure();
-loglog(timestamp_var(:,1:end-1),depth_var)
+max_timestamp = max(timestamp_var);  %Finding the max time analytically
+depth_var(depth_var<0) = nan;
+%timestamp_var(timestamp_var>timestamp_var(:,find(depth_var==max(depth_var)))) = nan;
+semilogx(timestamp_var,depth_var)
+
+iii = 10
+%plot(create_circle(Var_R(iii),timestamp_var(:,iii),depth_var(:,iii)), 'r-');
+
+xline(max_timestamp,'k--')
+set(gca, 'YDir','reverse')
 xlabel 'T [years]'
 ylabel 'Depth [km]'
+
+function [x,y] = create_circle(radius,xlocation,ylocation)
+        % Create a vectortheta.
+        theta=linspace(0,2*pi,200);
+        x    = xlocation + radius * cos(theta);
+        y    = ylocation + radius * sin(theta);    
+end 
+
+
