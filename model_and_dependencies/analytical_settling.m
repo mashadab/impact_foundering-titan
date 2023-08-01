@@ -12,13 +12,16 @@ clc; close all; clear all;
 %%%% Adding the viscosity change due to temperature
 
 R = 8.314; % universal gas constant, J K^-1 mol^-1
-T_b = 273; % melting temperature, K
-Apar = E_a/R/T_b; % viscosity exponenet
-viscosity_activation_energy = 50e3; % viscosity activation energy
+T_b = 273.16; % melting temperature, K
+E_a = 50e3; % viscosity activation energy
+Apar = E_a/R/T_b; % viscosity exponent
+mu_b = 1e14; %basal dynamic viscosity [Pa.s]
 
 %% Input variables
 %Thermodynamics
-Ti =  273.15;       %surrounding ice temperature [K]
+Ti =  263.16;       %surrounding ice temperature [K]
+
+mu = mu_b*exp(0.25*Apar*(T_b/Ti-1));%Temperature corrected basal viscosity [Pa.s]
 
 %Viscosity
 
@@ -79,7 +82,6 @@ t_solid = tau_max(beta) * beta * (R*1e3).^2 / (kappa * yr2s); %redimensionalizin
 %Parameters
 rho_melt  = 1000; %density of the melt (water) [kg/m^3]
 rho_matrix= 917;  %density of the bath (ice) [kg/m^3] 
-mu        = 1e14; %dynamic viscosity [Pa.s]
 yr2s      = 365.25*24*60*60; %year to second conversion [s/year]
 
 %Calculating the settling velocity
@@ -130,7 +132,7 @@ iii = 10
 %plot(create_circle(Var_R(iii),timestamp_var(:,iii),depth_var(:,iii)), 'r-');
 
 xline(t_solid,'k--')
-plot(1100, 7.5, 'rX','MarkerSize',14)
+plot([0, 268,1100], [0, 1.5,7.5], 'rX','MarkerSize',14)
 set(gca, 'YDir','reverse')
 xlabel 'T [years]'
 ylabel 'Depth [km]'
