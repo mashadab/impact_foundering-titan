@@ -1,9 +1,26 @@
 %Analytical 
+set(groot,'defaultAxesFontName','Times')
+set(groot,'defaultAxesFontSize',20)
+set(groot,'defaulttextinterpreter','latex')
+set(groot,'defaultAxesTickLabelInterpreter','latex')
+set(groot,'defaultLegendInterpreter','latex')
 set(groot, 'DefaultFigureVisible', 'on');
+set(groot, 'DefaultLineLineWidth', 2);
+
 clc; close all; clear all;
+
+%%%% Adding the viscosity change due to temperature
+
+R = 8.314; % universal gas constant, J K^-1 mol^-1
+T_b = 273; % melting temperature, K
+Apar = E_a/R/T_b; % viscosity exponenet
+viscosity_activation_energy = 50e3; % viscosity activation energy
+
 %% Input variables
 %Thermodynamics
-Ti =  263.16;       %surrounding ice temperature [K]
+Ti =  273.15;       %surrounding ice temperature [K]
+
+%Viscosity
 
 %Settling
 %{
@@ -48,12 +65,15 @@ beta = L/(cp_i*(Tm - Ti)); %Stefan number
 S = linspace(0,1-1e-10,10000); %S is the dimless location of the front w.r.t initial position
 tau  =  (3.*S.^2 - 2.*S.^3)./6 + S.^2 ./ (6.*beta) - S.^2./(45.*beta.^2.*(1-S)); %dimless time
 
+S(S> S(find(tau==max(tau)))) = nan;   %Near full melt limit
+tau(S> S(find(tau==max(tau)))) = nan; %Near full melt limit
+
 figure();
 plot(tau,S);
 xlim([0 0.3])
 ylabel 'S'
 xlabel 'Dimless time, tau'
-t_solid = tau_max(beta) * beta * (R*1e3).^2 / (kappa * yr2s) %redimensionalizing time
+t_solid = tau_max(beta) * beta * (R*1e3).^2 / (kappa * yr2s); %redimensionalizing time
 
 %% Calculate Settling: Stokes settling
 %Parameters
@@ -89,6 +109,7 @@ z = zeros(1,9999);
 depth_var(1) = 0
 while true
     
+    %depth_var(i+1) = V_settling_var(i).*(timestamp_var(i+1) - timestamp_var(i)); %instantaneous depth [km]
     depth_var(i+1) = depth_var(i)+V_settling_var(i).*(timestamp_var(i+1) - timestamp_var(i)); %instantaneous depth [km]
     
     i = i+1
@@ -101,15 +122,20 @@ figure();
 max_timestamp = max(timestamp_var);  %Finding the max time analytically
 depth_var(depth_var<0) = nan;
 %timestamp_var(timestamp_var>timestamp_var(:,find(depth_var==max(depth_var)))) = nan;
-semilogx(timestamp_var,depth_var)
+plot(timestamp_var,depth_var) 
+
+hold on
 
 iii = 10
 %plot(create_circle(Var_R(iii),timestamp_var(:,iii),depth_var(:,iii)), 'r-');
 
-xline(max_timestamp,'k--')
+xline(t_solid,'k--')
+plot(1100, 7.5, 'rX','MarkerSize',14)
 set(gca, 'YDir','reverse')
 xlabel 'T [years]'
 ylabel 'Depth [km]'
+ylim([0, 10])
+xlim([0, 3000])
 
 function [x,y] = create_circle(radius,xlocation,ylocation)
         % Create a vectortheta.
