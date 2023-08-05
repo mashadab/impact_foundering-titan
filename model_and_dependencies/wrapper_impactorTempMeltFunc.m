@@ -6,6 +6,8 @@ cox_and_bauer_impact_key = '03321';
 basal_viscosity = 1e14; % basal viscosity of ice
 viscosity_activation_energy = 50e3; % viscosity activation energy
 %% model run simulation
-impactorTempMeltFuncTdependentk(cox_and_bauer_impact_key,basal_viscosity, ...
+%impactorTempMeltFuncTdependentk(cox_and_bauer_impact_key,basal_viscosity, ...
+%    viscosity_activation_energy) %main driver routine
+impactorTempMeltFuncDarcyStokes(cox_and_bauer_impact_key,basal_viscosity, ...
     viscosity_activation_energy) %main driver routine
-         
+          

@@ -19,9 +19,13 @@ mu_b = 1e14; %basal dynamic viscosity [Pa.s]
 
 %% Input variables
 %Thermodynamics
-Ti =  263.16;       %surrounding ice temperature [K]
+Ti_C = -50;   %surrounding ice temperature [C]      
 
-mu = mu_b*exp(0.25*Apar*(T_b/Ti-1));%Temperature corrected basal viscosity [Pa.s]
+klist = [0.25, 0.5, 0.75, 1.0]; depth_var_array = []; timestamp_var_array=[];
+Ti =  273.16 + Ti_C; 
+
+for k1 = 1:length(klist)
+mu = klist(k1) * mu_b*exp(Apar*(T_b/Ti-1));%Temperature corrected basal viscosity [Pa.s]
 
 %Viscosity
 
@@ -106,6 +110,7 @@ loglog(timestamp_var,V_settling_var)
 ylabel 'V [km/year]'
 xlabel 'Time [year]'
 
+
 i = 1;
 z = zeros(1,9999);
 depth_var(1) = 0
@@ -120,24 +125,45 @@ while true
     
 end 
 
-figure();
-max_timestamp = max(timestamp_var);  %Finding the max time analytically
-depth_var(depth_var<0) = nan;
-%timestamp_var(timestamp_var>timestamp_var(:,find(depth_var==max(depth_var)))) = nan;
-plot(timestamp_var,depth_var) 
+depth_var_array      = [depth_var_array; depth_var];
+timestamp_var_array  = [timestamp_var_array; timestamp_var];
+end 
 
+blues = linspace(0.9,0,length(klist));
+
+h = figure();
+max_timestamp = max(timestamp_var);  %Finding the max time analytically
+depth_var(depth_var<0) = nan; i = 1;
+while true
+    plot(timestamp_var_array(i,:),depth_var_array(i,:),'b-',color=[blues(i) blues(i) 1])
+    hold on
+    i = i+1;
+    if i > length(klist), break ; end
+end 
+
+
+%Actual simulation result
+filename  = sprintf('save_data%dC_R1km_.mat',Ti_C);
+%load('save_data-10C.mat');
+%load('save_data-20C_R1km_.mat');
+load(filename);
+plot(data(:,1), 10*(data(1,2) - data(:,2)), 'r-')
 hold on
 
-iii = 10
-%plot(create_circle(Var_R(iii),timestamp_var(:,iii),depth_var(:,iii)), 'r-');
 
-xline(t_solid,'k--')
-plot([0, 268,1100], [0, 1.5,7.5], 'rX','MarkerSize',14)
+%xline(t_solid,'k--')
 set(gca, 'YDir','reverse')
 xlabel 'T [years]'
 ylabel 'Depth [km]'
-ylim([0, 10])
-xlim([0, 3000])
+ylim([0, 6])
+xlim([0, 1.4*max(data(:,1))])
+
+klist = klist';
+labels=num2str(klist,'Theory, k=%.2f');
+labels = [labels; 'Simulation    ']
+legend(labels,'location','southeast')
+saveas(h,sprintf('../figures/Comparison-bw-analy-theoretical%d.pdf',Ti))
+
 
 function [x,y] = create_circle(radius,xlocation,ylocation)
         % Create a vectortheta.
@@ -145,5 +171,3 @@ function [x,y] = create_circle(radius,xlocation,ylocation)
         x    = xlocation + radius * cos(theta);
         y    = ylocation + radius * sin(theta);    
 end 
-
-

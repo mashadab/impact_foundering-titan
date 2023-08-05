@@ -103,9 +103,10 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
     
-    Pi_1 = eta_0 * kc/(mu_f * d^2);        %For updated hydraulic condcutivity of total mass balance
+    Pi_1 = eta_0 * kc/(mu_f * d^2);      %For updated hydraulic condcutivity of total mass balance
     Pi_3 = kc*d*rho_f*grav/(mu_f * D_T); %For RHS of mass balance (fluid diffusion over heat diffusion)
-    Pi_5 = d^3 * rho_i * 
+    Pi_5 = d^3 * rho_i * grav / (eta_0 * D_T);      %Pi 5 from the notes
+    Pi_6 = mixZone;                      %Pi 6 from the notes
     %%%%%%%%%
     
     % non-dimensionalize temperature
@@ -249,7 +250,8 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         % calculate porosity from enthalpy
         [T,phi] = enthMelt(H,mixZone,nonT_fun,phi_fun,TWater_fun);
         H = porNonH_fun(phi,T);
-        
+        min(H)
+        max(H)
         %% Bouyancy force as the body force to Stokes flow
         %temp bouyancy
         Tplot= reshape(T,Grid.p.Ny,Grid.p.Nx);
@@ -309,7 +311,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         % higher porosity acts against Ra bouyancy force 
         fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
         
-        fs_mass = - Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
+        fs_mass = Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
         
         fs = [zeros(Grid.p.Nfx,1); fsVec; fs_mass];  %%%%Added RHS term for total mass balance
         
@@ -330,14 +332,16 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         vy = u(Grid.p.Nfx+1:(Grid.p.Nfx+Grid.p.Nfy));
         vm = [vx;vy];       %velocity of the solid phase, m/s
         vmax= max(abs(vm)); %largest solid velocity
+        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
+
+        
+        vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
+        vfmax= max(abs(vf)); %largest solid velocity        
         
         % Adaptive time stepping based on competition b/w CFL and Neumann
         % conditions in each direction; CFL number set to 0.8
-        dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.8;
-        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
-
-        vf = vm + Pi_1 * phi.^(mm-1) .* ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the velocity
-        
+        dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,Grid.p.dx/vfmax,Grid.p.dy/vfmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.1;
+       
         %% non-linear thermal conducitivity matricies
         kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
         % select near boundary ocean cells
@@ -347,17 +351,21 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         kappaFace = comp_mean(kappaPrimePlot,1,1,Grid.p);
                 
         %% Advection of enthalpy, diffusion of temperature
-        AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
+        %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
+        AHs = build_adv_op(vm,(1-phi).*T,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the solid enthalpy from center to faces %%%%%%%
+        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the fluid enthalpy from center to faces %%%%%%%
+        AH  = AHs + AHf; %Combine the advection operator
         
         L_T_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
         L_T_E_H = Ip - dt*(Dp*AH);         %Linear operator of heat advection
         RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
-    
-        %%%%
+        
         %% Advection of organic tracer fn_c is the same as natural BCs
-        Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        %Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        Ac1s = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        Ac1f = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces        
         L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_c_E1 = Ip - dt*(Dp * Ac1);% Explicit operator of tracer advection
         RHS_c1 = L_c_E1 * trc1 + (fn_c) * dt; %Forming the vector B of Ax = B
@@ -367,7 +375,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
         RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
-        %%%%        
+      
         
         %% calculate net melt and melt transported to "ocean"
         % make two planes to measure the melt transported through
@@ -402,7 +410,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >720
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -418,7 +426,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
             
              i
             %streamfunction plot
-            h=figure('Visible', 'off'); %For visibility: h=figure(4);
+            h=figure('Visible', 'on'); %For visibility: h=figure(4);
             set(gcf,'units','points','position',[0,0,3125,1250])
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
@@ -602,6 +610,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
             FF(frameno) = getframe(gcf) ;
          end
     end
+    
 %%%%
 %% Making a video out of frames
  % create the video writer with fps of the original video

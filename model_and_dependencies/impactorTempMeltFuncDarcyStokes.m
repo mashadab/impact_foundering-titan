@@ -311,7 +311,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         % higher porosity acts against Ra bouyancy force 
         fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
         
-        fs_mass = - Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
+        fs_mass = Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
         
         fs = [zeros(Grid.p.Nfx,1); fsVec; fs_mass];  %%%%Added RHS term for total mass balance
         
@@ -335,7 +335,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
 
         
-        vf = vm + Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
+        vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
         vfmax= max(abs(vf)); %largest solid velocity        
         
         % Adaptive time stepping based on competition b/w CFL and Neumann
@@ -362,21 +362,26 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
         
-        %%%%
-        %{
         %% Advection of organic tracer fn_c is the same as natural BCs
-        Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        %Organics
+        %Ac1 = build_adv_op(vm,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        Ac1s = build_adv_op(vm,trc1.*(1-phi),dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (solid)  %%%%
+        Ac1f = build_adv_op(vf,trc1.*phi,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (fluid) %%%%       
+        Ac1  = Ac1s + Ac1f; %Total transport flux of tracer 1 %%%%
         L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_c_E1 = Ip - dt*(Dp * Ac1);% Explicit operator of tracer advection
         RHS_c1 = L_c_E1 * trc1 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc1 = solve_lbvp(L_c_I,RHS_c1, B_c, Param.c.g,N_c); %time marching the tracer equation
         
-        Ac2 = build_adv_op(vm,trc2,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        %Clathrates
+        %Ac2 = build_adv_op(vm,trc2,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        Ac2s = build_adv_op(vm,trc2.*(1-phi),dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (solid)  %%%%
+        Ac2f = build_adv_op(vf,trc2.*phi,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (fluid) %%%%       
+        Ac2  = Ac2s + Ac2f; %Total transport flux of tracer 1 %%%%
         L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
         RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
-        %}
-        %%%%        
+      
         
         %% calculate net melt and melt transported to "ocean"
         % make two planes to measure the melt transported through
@@ -411,7 +416,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >720
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...

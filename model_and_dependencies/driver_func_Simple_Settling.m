@@ -108,7 +108,7 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
     %phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
     
     % convert inital condition to grid
-    T_avg = 263.16; %Average temperature of ice shell [in K]
+    T_avg = 233.16; %Average temperature of ice shell [in K]
     TGr = (T_avg-T_t)/DT.*ones(grRes,Grid.p.Nx);     %Temp on the grid, K (all at melting temperature) 
     phiGr = zeros(grRes,Grid.p.Nx);  %porosity on the grid (all ice except melt)
     
@@ -238,7 +238,7 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
     phiDrain2Vec = [];
     phiFracRem = [];
     frameno = 0; %%%%Initializing frame number for plotting
-    
+    data = [];    
     %% temporal evolution
     for i = 1:1e9
         
@@ -371,8 +371,12 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
         phiRem = sum(sum(phiGr(ocTh+grRes/5:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3);
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
+ 
+        Y_extreme = Y(phi>0);
+        
+        data = [data; tTot, min(Y_extreme(Y_extreme>0.05))]; %The base of the melt for pos processing        
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >1000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >22500
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -567,11 +571,14 @@ function driver_func_Simple_Settling(fn,eta_0,E_a)
             
             %}
             
+            
             % convert the image to a frame
             frameno = frameno + 1;
             FF(frameno) = getframe(gcf) ;
          end
     end
+    
+save('save_data.mat','data');
 %%%%
 %% Making a video out of frames
  % create the video writer with fps of the original video
