@@ -22,7 +22,7 @@ function impactorTempMeltFuncDarcyStokesHeadForm(fn,eta_0,E_a)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
-    set(groot, 'DefaultFigureVisible', 'on');
+    set(groot, 'DefaultFigureVisible', 'off');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
@@ -308,7 +308,7 @@ function impactorTempMeltFuncDarcyStokesHeadForm(fn,eta_0,E_a)
         Kdprime_vec = comp_mean(phiPlot.^nn,1,1,Grid.p);
         Kdprime = spdiags(Kdprime_vec,0,length(Kdprime_vec),length(Kdprime_vec)); %dimensional permeability
 
-        fs_fluid_pressure =  - Pi_5 * (rho_f/rho_i) * ones(Grid.p.Nfy,1);  %Extra source term from Pf
+        fs_fluid_pressure =  - Pi_5 * (rho_f/rho_i) * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %Extra source term from Pf
         
         % higher porosity acts against Ra bouyancy force 
         fsVec = fs_T + fs_por + fs_fluid_pressure; %adding diffusion and convection equation RHS
@@ -335,7 +335,7 @@ function impactorTempMeltFuncDarcyStokesHeadForm(fn,eta_0,E_a)
         vm = [vx;vy];       %velocity of the solid phase, m/s
         vmax= max(abs(vm)); %largest solid velocity
         p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure coupled with gravitational head
-        p  = p - (rho_f/rho_i) * Pi_5 * Y(:);  %Calculating fluid from overall pressure  %%%%
+        p  = p - 
         
         vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
         vfmax= max(abs(vf)); %largest solid velocity        
