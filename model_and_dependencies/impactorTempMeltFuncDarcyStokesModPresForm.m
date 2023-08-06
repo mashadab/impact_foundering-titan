@@ -22,7 +22,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
-    set(groot, 'DefaultFigureVisible', 'on');
+    set(groot, 'DefaultFigureVisible', 'off');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
@@ -202,8 +202,8 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax;Grid.p.dof_ymin];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax;Grid.p.dof_f_ymin];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax;qPrime*ones(size(Grid.p.dof_f_ymin))];
-    %}
-
+        %}
+    
     Param.H(1).dof_dir = [Grid.p.dof_ymax,Grid.p.dof_ymin];
     Param.H(1).dof_f_dir = [Grid.p.dof_f_ymax,Grid.p.dof_f_ymin];
     Param.H(1).g = [H0*ones(length(Grid.p.dof_ymax),1);H(Grid.p.dof_ymin)];
@@ -211,7 +211,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax];    
-    
+
     %%%%
     
     [BH,NH,fn_H] = build_bnd(Param.H,Grid.p,Ip);
@@ -444,7 +444,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
             
              i
             %streamfunction plot
-            h=figure('Visible', 'on'); %For visibility: h=figure(4);
+            h=figure('Visible', 'off'); %For visibility: h=figure(4);
             set(gcf,'units','points','position',[0,0,3125,1250])
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);

@@ -164,7 +164,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     trc2 = ones(Grid.p.N,1); %initializing tracer with max conc. unity
     trc2(Y(:)<0.9) = 0;      %How thick is the clathrate layer? 1 - 0.975 dimensional units
     
-    trc2(phiGr>0.1) = 1;%Melted region being initialized
+    trc2(phiGr>0.1) = 1; %Melted region being initialized
     trc2(Y(:)<0.1)  = 1; %second layer
     trc2(Y(:)<0.0)  = 0; %Taking out the ocean
     
