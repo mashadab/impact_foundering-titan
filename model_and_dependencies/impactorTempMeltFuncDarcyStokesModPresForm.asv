@@ -1,4 +1,4 @@
-function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
+function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -22,7 +22,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
-    set(groot, 'DefaultFigureVisible', 'off');
+    set(groot, 'DefaultFigureVisible', 'on');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
@@ -200,9 +200,10 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax;Grid.p.dof_ymin];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax;Grid.p.dof_f_ymin];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax;qPrime*ones(size(Grid.p.dof_f_ymin))];
+    
+    
     [BH,NH,fn_H] = build_bnd(Param.H,Grid.p,Ip);
     Param.H(1).dof_out = [Grid.p.dof_ymin];
-    
     
     % Free slip boundary condition for Stokes equation
     %Dirichlet BC below; Natural BCs are automatically defined
@@ -250,8 +251,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         % calculate porosity from enthalpy
         [T,phi] = enthMelt(H,mixZone,nonT_fun,phi_fun,TWater_fun);
         H = porNonH_fun(phi,T);
-        min(H)
-        max(H)
         %% Bouyancy force as the body force to Stokes flow
         %temp bouyancy
         Tplot= reshape(T,Grid.p.Ny,Grid.p.Nx);
@@ -308,11 +307,13 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         Kdprime_vec = comp_mean(phiPlot.^nn,1,1,Grid.p);
         Kdprime = spdiags(Kdprime_vec,0,length(Kdprime_vec),length(Kdprime_vec)); %dimensional permeability
 
+        fs_fluid_pressure =  - Pi_5 * (rho_f/rho_i) * ones(Grid.p.Nfy,1);  %Extra source term from Pf
+        
         % higher porosity acts against Ra bouyancy force 
-        fsVec = fs_T + fs_por; %adding diffusion and convection equation RHS
+        fsVec = fs_T + fs_por + fs_fluid_pressure; %adding diffusion and convection equation RHS
         
-        fs_mass = Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
-        
+        %fs_mass = Dp * Kdprime * Pi_3 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)];  %%%%source term of total mass balance; no Gamma term
+        fs_mass  = zeros(Grid.p.N,1);   %No source term in mass balance %%%%
         fs = [zeros(Grid.p.Nfx,1); fsVec; fs_mass];  %%%%Added RHS term for total mass balance
         
         %%%%
@@ -332,8 +333,8 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         vy = u(Grid.p.Nfx+1:(Grid.p.Nfx+Grid.p.Nfy));
         vm = [vx;vy];       %velocity of the solid phase, m/s
         vmax= max(abs(vm)); %largest solid velocity
-        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure
-
+        p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure coupled with gravitational head
+        p  = p - (rho_f/rho_i) * Pi_5 * Y(:);  %Calculating fluid from overall pressure  %%%%
         
         vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
         vfmax= max(abs(vf)); %largest solid velocity        
@@ -381,7 +382,6 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
         L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
         RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
-      
         
         %% calculate net melt and melt transported to "ocean"
         % make two planes to measure the melt transported through
@@ -432,7 +432,7 @@ function impactorTempMeltFuncDarcyStokes(fn,eta_0,E_a)
             
              i
             %streamfunction plot
-            h=figure('Visible', 'off'); %For visibility: h=figure(4);
+            h=figure('Visible', 'on'); %For visibility: h=figure(4);
             set(gcf,'units','points','position',[0,0,3125,1250])
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
