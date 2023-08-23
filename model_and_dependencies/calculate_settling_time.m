@@ -10,18 +10,18 @@ set(groot, 'DefaultFigureVisible', 'on');
 set(groot, 'DefaultLineLineWidth', 2);
 
 %% Calculate the settling time
-%{
+
 %Titan
 grav      = 1.352;%gravity: Europa =1.315, Titan = 1.352, [m/s^2]
 V  = linspace(100,5000,1000); %volume of the melt [km^3] 
-d_ice= [50, 80, 100, 150]' ;  %thickness of ice sheet [km]
-%}
+d_ice= [50, 60, 75, 150]' ;  %thickness of ice sheet [km]
 
+%{
 %Europa
 grav      = 1.315; %Titan = 1.352, [m/s^2]
 V  = linspace(0.1,1000,1000); %volume of the melt [km^3] 
 d_ice= [5, 10, 15, 20]' ;  %thickness of ice sheet [km]
-
+%}
 
 %Parameters
 rho_melt  = 1000; %density of the melt (water) [kg/m^3]
@@ -66,9 +66,16 @@ while true
     if i > length(d_ice), break ; end
 end 
 
+%{
+%Europa
 plot(Vol_simple,t_settling_simple_Europa_analy,'rX', 'MarkerSize',14);
 plot(Vol_simple,t_settling_simple_Europa_sim,'ro', 'MarkerSize',14);
 plot(31, 270, 'ro', 'MarkerSize',14,color=[blacks(2) blacks(2) blacks(2)]);  %Theoretical Europa ice shell
 plot(31, 350, 'kX', 'MarkerSize',14,color=[blacks(2) blacks(2) blacks(2)]);  %Actual sim Europa ice shell
+%}
+
+%Europa
+plot(450, 338, 'rX', 'MarkerSize',14,color=[blacks(2) blacks(2) blacks(2)]);  %Theoretical Europa ice shell
+plot(450, 1870, 'ko', 'MarkerSize',14,color=[blacks(2) blacks(2) blacks(2)]);  %Actual sim Europa ice shell
 legend(labels,'location','best')
 saveas(h,sprintf('../figures/Output.png'))

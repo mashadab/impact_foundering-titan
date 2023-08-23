@@ -19,7 +19,7 @@ mu_b = 1e14; %basal dynamic viscosity [Pa.s]
 
 %% Input variables
 %Thermodynamics
-Ti_C = -50;   %surrounding ice temperature [C]      
+Ti_C = -10;   %surrounding ice temperature [C]      
 
 klist = [0.25, 0.5, 0.75, 1.0]; depth_var_array = []; timestamp_var_array=[];
 Ti =  273.16 + Ti_C; 
@@ -153,7 +153,7 @@ hold on
 
 %xline(t_solid,'k--')
 set(gca, 'YDir','reverse')
-xlabel 'T [years]'
+xlabel 't [years]'
 ylabel 'Depth [km]'
 ylim([0, 6])
 xlim([0, 1.4*max(data(:,1))])
@@ -161,7 +161,7 @@ xlim([0, 1.4*max(data(:,1))])
 klist = klist';
 labels=num2str(klist,'Theory, k=%.2f');
 labels = [labels; 'Simulation    ']
-legend(labels,'location','southeast')
+legend(labels,'location','northeast')
 saveas(h,sprintf('../figures/Comparison-bw-analy-theoretical%d.pdf',Ti))
 
 

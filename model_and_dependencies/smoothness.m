@@ -27,7 +27,7 @@ Nf = Grid.Nf;%length(q);
 dx = Grid.dx;
 
 tol = 1e-10;
-high_value = 100;
+high_value = 100e5;
 %% Compute divided differences
 if ((Nx>1) && (Ny==1)) || ((Nx==1) && (Ny>1)) % 1D
     Nf = length(q); %N = length(df)

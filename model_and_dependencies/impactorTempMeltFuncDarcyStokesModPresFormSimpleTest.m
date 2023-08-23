@@ -1,4 +1,4 @@
-function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
+!function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -28,21 +28,11 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     % make ice shell thickness based on impact code passed from iSALE
     if any([all(fn == '03321') all(fn == '03800') all(fn == '04304')])
         d = 10*1e3; % ice shell thickness, m  
-    elseif any([all(fn == '03314') all(fn == '03402') all(fn == '03400')])
-        d = 20*1e3; % ice shell thickness, m
-    elseif any([all(fn == '03313') all(fn == '03701')])
-        d = 30*1e3; % ice shell thickness, m
-    elseif all(fn == '03330')
-        d = 40*1e3; % ice shell thickness, m
+        T_ice = 273.16; %temp of ice shell, C
     end
 
     % threshold of intial fluid left in ice shell to stop simulation at
     termFrac = 0.005;
-    
-    % load simulations from initial conditions folder (Digitized output via
-    % Python from iSALE simulations)
-    fp = '../initial_conditions/ic'; %loading the initial conditions
-    load([fp fn '_100.mat'],'T','phi'); %loading porosity phi and temp T
 
     %% Set physical parameters and make dimensionless scales
     % physical parameters for ice
@@ -108,9 +98,6 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     Pi_5 = d^3 * rho_i * grav / (eta_0 * D_T);      %Pi 5 from the notes
     Pi_6 = mixZone;                      %Pi 6 from the notes
     %%%%%%%%%
-    
-    % non-dimensionalize temperature
-    T = (T - T_t)/DT;
 
     % thermal condutvity in convective ocean, set to maintain vertical
     % isotherm in ocean
@@ -127,8 +114,10 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
     
     % convert inital condition to grid
-    TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
-    phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
+    % non-dimensionalize temperature
+    T_ice_dimless = (T_ice - T_t)/DT;
+    TGr = T_ice_dimless*ones(grRes,Grid.p.Nx);        %Temp on the grid, K
+    phiGr = 1e-14*ones(grRes,Grid.p.Nx);     %porosity on the grid
     
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
@@ -141,6 +130,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     % build ocean layer
     TOc = ones(ocTh,Grid.p.Nx);    %Temperature of ocean, K
     phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
+    phiOc(1:20,:) = 0.0;   %zeroing out last layer
     
     % combine ice shell and ocean to get the entire domain fields
     TGr = [TOc; TGr]; %Temperature, K
@@ -186,7 +176,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     
     %% Build boundary conditions for temperature and flow equation
     % Fix temperature at top of ice shell with Dirchlet BC
-    T0 = 0;
+    T0 = 1;
     H0 = nonH_fun(T0);
     Param = struct('H',{},'g',{},'dof_dir',{});
     Param(1).H = struct('dof_dir',{},'dof_f_dir',{},'g',{},'dof_neu',{},'dof_f_neu',{},'qb',{},'dof_out',{});
@@ -202,11 +192,11 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax;Grid.p.dof_ymin];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax;Grid.p.dof_f_ymin];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax;qPrime*ones(size(Grid.p.dof_f_ymin))];
-        %}
+    %}
     
     Param.H(1).dof_dir = [Grid.p.dof_ymax,Grid.p.dof_ymin];
     Param.H(1).dof_f_dir = [Grid.p.dof_f_ymax,Grid.p.dof_f_ymin];
-    Param.H(1).g = [H0*ones(length(Grid.p.dof_ymax),1);H(Grid.p.dof_ymin)];
+    Param.H(1).g = [H(Grid.p.dof_ymax);H(Grid.p.dof_ymin)];
     
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax];
@@ -433,7 +423,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >1500
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >500
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -461,7 +451,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
             Tplot_dummy=Tplot;
             contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,Tplot*DT+T_t,40,'linestyle','none'),view(2),hold on
             c1 = colorbar('NorthOutside');
-            caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
+            %caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
             cStrVal = linspace(min(PSI(:)),max(PSI(:)),10);
             contour(Grid.p.xf*d/1e3,Grid.p.yf*d/1e3,PSI,'k','LevelList',cStrVal);
             c1.Label.String = 'Temperature, K';
