@@ -62,12 +62,13 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     rho_w = 1e3; % density of water, kg/m^3
     c_pw = 4.186e3; % specific ehat of water, J/kg
     kappa_w = 0.56; %thermal diffusivity of water, W/(m K)
-    porViscPar = 0;%How much a certain amt of melt reduce viscosity of ice  %%%% effective solid visc
+    porViscPar = 45;%How much a certain amt of melt reduce viscosity of ice  %%%% effective solid visc
     
     % temperature and melt fraction dependent viscosity, Pa s
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
-    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
-    
+    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
+    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2); %Old viscosity
+    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-2); %Old viscosity with water softening
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
     % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
     c_fun = @(nonT) a+b*(DT*nonT+T_t); %specific heat function, J/(kg K)
@@ -98,7 +99,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 5.6e-15; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -365,15 +366,15 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
         kappaFace = comp_mean(kappaPrimePlot,1,1,Grid.p);
                 
         %% Advection of enthalpy, diffusion of temperature
-        %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
-        AHs = build_adv_op(vm,(1-phi).*T,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the solid enthalpy from center to faces %%%%%%%
-        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the fluid enthalpy from center to faces %%%%%%%
+        AHs = build_adv_op(vm,(1-phi).*(T-1),dt,Gp,Grid.p,Param.H,'mc')*((1-phi).*(T-1)); %Upwinding the solid enthalpy from center to faces %%%%%%%
+        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc')*(phi*Pi_6); %Upwinding the fluid enthalpy from center to faces %%%%%%%
         AH  = AHs + AHf; %Combine the advection operator
         
         L_T_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
-        L_T_E_H = Ip - dt*(Dp*AH);         %Linear operator of heat advection
-        RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
+        L_T_E_H = H - dt*(Dp*AH);         %Linear operator of heat advection
+
+        RHS_T = L_T_E_H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
         
         %% Advection of organic tracer fn_c is the same as natural BCs
@@ -433,7 +434,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >1500
+        if phiFracRem(end) < termFrac || i >5000 %  || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) %1500 to 5000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -514,7 +515,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm(fn,eta_0,E_a)
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
             
-            if i<100
+            if i<1500
                 saveas(h,sprintf('../figures/res_fig%d.png',i));            
             end
             %{

@@ -1,4 +1,4 @@
-function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
+function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -28,11 +28,21 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     % make ice shell thickness based on impact code passed from iSALE
     if any([all(fn == '03321') all(fn == '03800') all(fn == '04304')])
         d = 10*1e3; % ice shell thickness, m  
-        T_ice = 273.16; %temp of ice shell, C
+    elseif any([all(fn == '03314') all(fn == '03402') all(fn == '03400')])
+        d = 20*1e3; % ice shell thickness, m
+    elseif any([all(fn == '03313') all(fn == '03701')])
+        d = 30*1e3; % ice shell thickness, m
+    elseif all(fn == '03330')
+        d = 40*1e3; % ice shell thickness, m
     end
 
     % threshold of intial fluid left in ice shell to stop simulation at
     termFrac = 0.005;
+    
+    % load simulations from initial conditions folder (Digitized output via
+    % Python from iSALE simulations)
+    fp = '../initial_conditions/ic'; %loading the initial conditions
+    load([fp fn '_100.mat'],'T','phi'); %loading porosity phi and temp T
 
     %% Set physical parameters and make dimensionless scales
     % physical parameters for ice
@@ -52,12 +62,13 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     rho_w = 1e3; % density of water, kg/m^3
     c_pw = 4.186e3; % specific ehat of water, J/kg
     kappa_w = 0.56; %thermal diffusivity of water, W/(m K)
-    porViscPar = 0;%How much a certain amt of melt reduce viscosity of ice  %%%% effective solid visc
+    porViscPar = 45;%How much a certain amt of melt reduce viscosity of ice  %%%% effective solid visc
     
     % temperature and melt fraction dependent viscosity, Pa s
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
-    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
-    
+    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
+    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2); %Old viscosity
+    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-2); %Old viscosity with water softening
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
     % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
     c_fun = @(nonT) a+b*(DT*nonT+T_t); %specific heat function, J/(kg K)
@@ -88,7 +99,7 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 0%5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -98,6 +109,9 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     Pi_5 = d^3 * rho_i * grav / (eta_0 * D_T);      %Pi 5 from the notes
     Pi_6 = mixZone;                      %Pi 6 from the notes
     %%%%%%%%%
+    
+    % non-dimensionalize temperature
+    T = (T - T_t)/DT;
 
     % thermal condutvity in convective ocean, set to maintain vertical
     % isotherm in ocean
@@ -114,10 +128,8 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
     
     % convert inital condition to grid
-    % non-dimensionalize temperature
-    T_ice_dimless = (T_ice - T_t)/DT;
-    TGr = T_ice_dimless*ones(grRes,Grid.p.Nx);        %Temp on the grid, K
-    phiGr = 1e-14*ones(grRes,Grid.p.Nx);     %porosity on the grid
+    TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
+    phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
     
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
@@ -130,7 +142,6 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     % build ocean layer
     TOc = ones(ocTh,Grid.p.Nx);    %Temperature of ocean, K
     phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
-    phiOc(1:20,:) = 0.0;   %zeroing out last layer
     
     % combine ice shell and ocean to get the entire domain fields
     TGr = [TOc; TGr]; %Temperature, K
@@ -176,7 +187,7 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     
     %% Build boundary conditions for temperature and flow equation
     % Fix temperature at top of ice shell with Dirchlet BC
-    T0 = 1;
+    T0 = 0;
     H0 = nonH_fun(T0);
     Param = struct('H',{},'g',{},'dof_dir',{});
     Param(1).H = struct('dof_dir',{},'dof_f_dir',{},'g',{},'dof_neu',{},'dof_f_neu',{},'qb',{},'dof_out',{});
@@ -192,11 +203,11 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax;Grid.p.dof_ymin];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax;Grid.p.dof_f_ymin];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax;qPrime*ones(size(Grid.p.dof_f_ymin))];
-    %}
+        %}
     
     Param.H(1).dof_dir = [Grid.p.dof_ymax,Grid.p.dof_ymin];
     Param.H(1).dof_f_dir = [Grid.p.dof_f_ymax,Grid.p.dof_f_ymin];
-    Param.H(1).g = [H(Grid.p.dof_ymax);H(Grid.p.dof_ymin)];
+    Param.H(1).g = [H0*ones(length(Grid.p.dof_ymax),1);H(Grid.p.dof_ymin)];
     
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax];
@@ -325,10 +336,10 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
         tau = D*2*viscMat*Edot;
         %L = [tau + Gp * Zd * Dp  ,-Gp;             
         %    Dp                  ,-Dp * Kdprime * Gp];
-%         L = [tau,Gp;                             %Two-phase slurry model
-%             Dp,Zp];
-        L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
-            Dp,                    -Dp * Pi_1* Kdprime * Gp];
+         L = [tau,Gp;                             %Two-phase slurry model
+             Dp,Zp];
+        %L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
+        %    Dp,                    -Dp * Pi_1* Kdprime * Gp];
         % solve for flow velocities
         u = solve_lbvp(L,fs,B,Param.g,N);
         vx = u(1:Grid.p.Nfx);
@@ -355,15 +366,19 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
         kappaFace = comp_mean(kappaPrimePlot,1,1,Grid.p);
                 
         %% Advection of enthalpy, diffusion of temperature
-        %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the enthalpy from center to faces
-        AHs = build_adv_op(vm,(1-phi).*T,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the solid enthalpy from center to faces %%%%%%%
-        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc'); %Upwinding the fluid enthalpy from center to faces %%%%%%%
+        %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc')*H; %Upwinding the enthalpy from center to faces
+        AHs = build_adv_op(vm,(1-phi).*(T-1),dt,Gp,Grid.p,Param.H,'mc')*((1-phi).*(T-1)); %Upwinding the solid enthalpy from center to faces %%%%%%%
+        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc')*(phi*Pi_6); %Upwinding the fluid enthalpy from center to faces %%%%%%%
         AH  = AHs + AHf; %Combine the advection operator
+        
+        %AHnew2 = build_adv_op(vm,((1-phi).*(T-1) + phi*Pi_6),dt,Gp,Grid.p,Param.H,'mc')*((1-phi).*(T-1) + phi*Pi_6);
+        %AHnew3 = (build_adv_op(vm,(1-phi).*(T-1),dt,Gp,Grid.p,Param.H,'mc')*((1-phi).*(T-1))+build_adv_op(vm,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc')*(phi*Pi_6))
+        %norm(H - ((1-phi).*(T-1) + phi*Pi_6))
         
         L_T_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_T_E_T = - dt*(-Dp*kappaFace*Gp); %Linear operator of heat diffusion
-        L_T_E_H = Ip - dt*(Dp*AH);         %Linear operator of heat advection
-        RHS_T = L_T_E_H*H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
+        L_T_E_H = H - dt*(Dp*AH);         %Linear operator of heat advection
+        RHS_T = L_T_E_H + L_T_E_T*T + (fn_H)*dt; %RHS of enthalpy balance
         H = solve_lbvp(L_T_I,RHS_T,BH,Param.H.g,NH); %time marching the enthalpy equation
         
         %% Advection of organic tracer fn_c is the same as natural BCs
@@ -423,7 +438,7 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >500
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000 %1500 to 5000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -451,7 +466,7 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
             Tplot_dummy=Tplot;
             contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,Tplot*DT+T_t,40,'linestyle','none'),view(2),hold on
             c1 = colorbar('NorthOutside');
-            %caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
+            caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
             cStrVal = linspace(min(PSI(:)),max(PSI(:)),10);
             contour(Grid.p.xf*d/1e3,Grid.p.yf*d/1e3,PSI,'k','LevelList',cStrVal);
             c1.Label.String = 'Temperature, K';
@@ -504,7 +519,7 @@ function impactorTempMeltFuncDarcyStokesModPresFormSimpleTest(fn,eta_0,E_a)
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
             
-            if i<100
+            if i<1500
                 saveas(h,sprintf('../figures/res_fig%d.png',i));            
             end
             %{
