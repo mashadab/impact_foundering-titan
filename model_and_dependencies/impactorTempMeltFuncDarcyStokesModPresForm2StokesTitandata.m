@@ -36,7 +36,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     % load simulations from initial conditions folder (Digitized output via
     % Python from iSALE simulations)
     fp = '../initial_conditions/'; %loading the initial conditions
-    load([fp 'Wakita_data.mat']); %loading porosity phi and temp T
+    load([fp 'Wakita_data_cropped_high_res.mat']); %loading porosity phi and temp T
 
     T   = flipud(Tdata);
     phi = flipud(phidata);
