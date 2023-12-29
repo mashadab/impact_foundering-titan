@@ -1,4 +1,4 @@
-function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
+function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -13,7 +13,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         given in J/mol, 50e3 is a common value
         no_of_tracers: Number of tracers = 0, 1, 2
 
-    Author: Mohammad Afzal Shadab, mashadab@utexas.edu, June 6, 2023 (search %%%%); 
+    Author: Mohammad Afzal Shadab, mashadab@utexas.edu, December 25th, 2023 (search %%%%); 
             Evan Carnahan, evan.carnahan@utexas.edu, 11/20/2022
     %}
 
@@ -26,14 +26,8 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
-    if any([all(fn == '03321') all(fn == '03800') all(fn == '04304')])
-        d = 10*1e3; % ice shell thickness, m  
-    elseif any([all(fn == '03314') all(fn == '03402') all(fn == '03400')])
+    if fn == 'Wakita'
         d = 20*1e3; % ice shell thickness, m
-    elseif any([all(fn == '03313') all(fn == '03701')])
-        d = 30*1e3; % ice shell thickness, m
-    elseif all(fn == '03330')
-        d = 40*1e3; % ice shell thickness, m
     end
 
     % threshold of intial fluid left in ice shell to stop simulation at
@@ -41,9 +35,12 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     
     % load simulations from initial conditions folder (Digitized output via
     % Python from iSALE simulations)
-    fp = '../initial_conditions/ic'; %loading the initial conditions
-    load([fp fn '_100.mat'],'T','phi'); %loading porosity phi and temp T
+    fp = '../initial_conditions/'; %loading the initial conditions
+    load([fp 'Wakita_data.mat']); %loading porosity phi and temp T
 
+    T   = flipud(Tdata);
+    phi = flipud(phidata);
+    
     %% Set physical parameters and make dimensionless scales
     % physical parameters for ice
     T_t = 100; % surface temperature, K
@@ -51,7 +48,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     b = 7.037; % ice specific heat parameter
     T_b = 273; % melting temperature, K
     rho_i = 920; % ice density at melting temperature, kg/m^3
-    grav = 1.315; % Europa gravity, m/s^2 
+    grav = 1.352; % gravity: Europa =1.315, m/s^2 , Titan = 1.352, m/s^2
     DT = T_b - T_t; % difference in temperature
     alpha = 1.6e-4; % thermal expansion coefficient, 1/K
     R = 8.314; % universal gas constant, J K^-1 mol^-1
@@ -99,7 +96,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 0%5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -334,10 +331,12 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         %% Stokes Flow calcualtion
         % make linear operators
         tau = D*2*viscMat*Edot;
-        % L = [tau,Gp;                             %Two-phase slurry model
-        %     Dp,Zp];
-        L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
-           Dp,                    -Dp * Pi_1* Kdprime * Gp];
+        %L = [tau + Gp * Zd * Dp  ,-Gp;             
+        %    Dp                  ,-Dp * Kdprime * Gp];
+         L = [tau,Gp;                             %Two-phase slurry model
+             Dp,Zp];
+        %L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
+        %    Dp,                    -Dp * Pi_1* Kdprime * Gp];
         % solve for flow velocities
         u = solve_lbvp(L,fs,B,Param.g,N);
         vx = u(1:Grid.p.Nfx);

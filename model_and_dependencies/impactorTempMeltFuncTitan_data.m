@@ -108,7 +108,7 @@ function impactorTempMeltFuncTitan_data(fn,eta_0,E_a)
     Gridp.ymin = -3/5; Gridp.ymax = 3; Gridp.Ny = 3*grZ+ocTh; %vertical direction
     Gridp.geom = 'cylindrical_rz';       %geometry type: cylinderical r-z coordinates
     Grid = build_stokes_grid_cyl(Gridp); %build grid for Stokes equation in 
-    [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
+    [X,Y]= meshgrid(Grid.p.xc,Grid.p.yc);
     
     % convert inital condition to grid
     TGr = T;%reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
