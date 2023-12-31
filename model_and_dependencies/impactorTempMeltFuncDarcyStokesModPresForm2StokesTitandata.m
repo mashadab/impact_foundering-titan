@@ -133,8 +133,12 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     %vertical variation
     %TGr_layer = kron(linspace(1,T(2,end),2*grZ)',ones(1,Grid.p.Nx));
     
+    Temp_Wakita = readtable('../initial_conditions/Wakita_temperature_profile_hc10.txt');
+    
+    
+    %Tlayer = -10; %Degree Celsius; temperature of layer
     % Adding a layer of temperate ice (fixed temperature)
-    TGr_layer   = ones(2*grZ,Grid.p.Nx);%T(2,end)*ones(2*grZ,Grid.p.Nx);  %melting temperature in the ice %%%%
+    TGr_layer   = (Tlayer+T_b - T_t)/DT*ones(2*grZ,Grid.p.Nx);%T(2,end)*ones(2*grZ,Grid.p.Nx);  %melting temperature in the ice %%%%
     phiGr_layer = zeros(2*grZ,Grid.p.Nx);
     %%%%
     
@@ -449,24 +453,73 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000 %1500 to 5000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >25000 %1500 to 5000
             % save point
-            save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
+            save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'kc' num2str(kc) 'Tlayer' num2str(Tlayer) 'C.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
         end
     
         %% PLOTTING
-         if mod(i,20) == 0
+         if mod(i,100) == 0
             greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
             reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
             blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
             
              i
+             
+
+            %streamfunction plot
+            hh=figure('Visible', 'off'); %For visibility: h=figure(4);
+            set(gcf,'units','points','position',[0,0,600,600])
+            % Enlarge figure to full screen.
+            %set(gcf, 'Position', [50 50 1500 600])  
+            tt = tiledlayout(1,2);
+            tt.TileSpacing = 'none';
+            t = sgtitle(sprintf('time=%.3f years',tTot)); t.FontSize = 25; t.FontName = 'Times';   
+            a1 = nexttile(tt);
+            hold on
+            axis normal
+            Tplot_dummy=Tplot;
+            contourf(-X*d/1e3,Y*d/1e3-Grid.p.dy,Tplot_dummy*DT+T_t,40,'linestyle','none'),view(2),hold on
+            caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
+            colormap(gca, reds);  % You can choose a different colormap if desired
+            c1 = colorbar('SouthOutside');           
+            c1.Label.String = 'Temperature, K';
+            %xlabel('x-dir, km');
+            xlabel('.');
+            ylabel('z-dir, km');
+            set(a1,'box','on','xtick',[-30, -20, -10],'Layer','top');
+            %colormap(ax1,reds);         
+            xlim([-max(X*d/1e3,[],'all'), 0]);
+            ylim([0, max(Y*d/1e3-Grid.p.dy,[],'all')]);
+            axis normal
+            hold on
+            a2 = nexttile(tt);
+            %contourf(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
+            phi_dummy=phi;  
+            %phi_dummy(phi_dummy<=1e-16) = NaN; 
+            contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,reshape(phi_dummy,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
+            colormap(gca, blues);  % You can choose a different colormap if desired
+            c2 = colorbar('SouthOutside');
+            caxis([0 1]);
+            ylim([0, max(Y*d/1e3-Grid.p.dy,[],'all')]);
+            xlim([0,max(X*d/1e3,[],'all')]);
+            set(a2,'box','on','yticklabel',[],'xtick',[0, 10, 20, 30],'Layer','top');
+            xlabel('radius, km');
+            c2.Label.String = 'Melt fraction, 1';          
+%             if i<1500
+            axis normal
+            tt.TileSpacing = 'none';
+            set(gca,'Layer','top')
+            saveas(hh,sprintf('../figures/newres_fig%d_imp_kc%dTlayer%dC.png',i,kc,Tlayer)); 
+            saveas(hh,sprintf('../figures/pdfnewres_fig%d_imp_kc%dTlayer%dC.pdf',i,kc,Tlayer)); 
+             
             %streamfunction plot
             h=figure('Visible', 'off'); %For visibility: h=figure(4);
             set(gcf,'units','points','position',[0,0,3125,1250])
+            ylim([0, max(Y*d/1e3-Grid.p.dy,[],'all')]);
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
@@ -530,9 +583,16 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
             
+            if rem(i,100)==0
+                            save(['../Output/impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'Tlayer' num2str(Tlayer) 'C.mat'],...
+                'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
+                'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
+            end
+            
 %             if i<1500
-            saveas(h,sprintf('../figures/res_fig%d.png',i));            
+            saveas(h,sprintf('../figures/res_fig%dkc%dTlayer%dC.png',i, kc,Tlayer)); 
 %             end
+
             %{
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
@@ -653,7 +713,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
 %%%%
 %% Making a video out of frames
  % create the video writer with fps of the original video
- Data_result= sprintf('../figures/case%s_t%syrs.avi',num2str(fn),num2str(tTot));
+ Data_result= sprintf('../figures/case%s_t%syrs_kc%sTlayer%sC..avi',num2str(fn),num2str(tTot),num2str(kc),num2str(Tlayer));
  writerObj = VideoWriter(Data_result);
  writerObj.FrameRate = 20; % set the seconds per image
  open(writerObj); % open the video writer

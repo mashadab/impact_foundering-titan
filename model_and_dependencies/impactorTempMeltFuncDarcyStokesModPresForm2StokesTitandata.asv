@@ -22,7 +22,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
     set(groot,'defaultLegendInterpreter','latex')
-    set(groot, 'DefaultFigureVisible', 'off');
+    set(groot, 'DefaultFigureVisible', 'on');
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
@@ -30,13 +30,13 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         d = 20*1e3; % ice shell thickness, m
     end
 
-    % threshold of intial fluid left in ice shell to stop simulation at
+    % threshold of initial fluid left in ice shell to stop simulation at
     termFrac = 0.005;
     
     % load simulations from initial conditions folder (Digitized output via
     % Python from iSALE simulations)
     fp = '../initial_conditions/'; %loading the initial conditions
-    load([fp 'Wakita_data.mat']); %loading porosity phi and temp T
+    load([fp 'Wakita_data_cropped_high_res.mat']); %loading porosity phi and temp T
 
     T   = flipud(Tdata);
     phi = flipud(phidata);
@@ -96,7 +96,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 0%5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -116,17 +116,27 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
 
     %% build cylindirical grid for numerical solution
     % build grid
-    grRes = 100; % grid resolution in radial direction
-    ocTh = grRes/5; % make ocean below the ice shell: 1/5 factor being 20% of the ice shell
-    Gridp.xmin = 0; Gridp.xmax = 2; Gridp.Nx = grRes; %radial direction
-    Gridp.ymin = -ocTh/grRes; Gridp.ymax = 1; Gridp.Ny = grRes+ocTh; %vertical direction
+    grRes = size(Ydata,2); % grid resolution in radial direction
+    grZ = size(Ydata,1); % grid resolution in radial direction
+    ocTh = floor(3*grZ/5); % make ocean below the ice shell: 1/5 factor being 20% of the ice shell
+    Gridp.xmin = 0; Gridp.xmax = 1.5; Gridp.Nx = grRes; %radial direction
+    Gridp.ymin = -3/5; Gridp.ymax = 3; Gridp.Ny = 3*grZ+ocTh; %vertical direction
     Gridp.geom = 'cylindrical_rz';       %geometry type: cylinderical r-z coordinates
     Grid = build_stokes_grid_cyl(Gridp); %build grid for Stokes equation in 
-    [X,Y] = meshgrid(Grid.p.xc,Grid.p.yc);
+    [X,Y]= meshgrid(Grid.p.xc,Grid.p.yc);
     
     % convert inital condition to grid
-    TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
-    phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
+    TGr = T;%reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
+    phiGr = phi;%reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
+
+    %%%%
+    %vertical variation
+    %TGr_layer = kron(linspace(1,T(2,end),2*grZ)',ones(1,Grid.p.Nx));
+    
+    % Adding a layer of temperate ice (fixed temperature)
+    TGr_layer   = ones(2*grZ,Grid.p.Nx);%T(2,end)*ones(2*grZ,Grid.p.Nx);  %melting temperature in the ice %%%%
+    phiGr_layer = zeros(2*grZ,Grid.p.Nx);
+    %%%%
     
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
@@ -141,30 +151,36 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
     
     % combine ice shell and ocean to get the entire domain fields
-    TGr = [TOc; TGr]; %Temperature, K
-    phiGr = [phiOc; phiGr]; %Porosity or melt fraction
+    TGr = [TOc; TGr_layer;TGr]; %Temperature, K
+    phiGr = [phiOc;phiGr_layer; phiGr]; %Porosity or melt fraction
     T = TGr(:); %Making Temperature array from grid, N by 1
     phi = phiGr(:); %Making porosity array from grid, N by 1
-    H = porNonH_fun(phi,T); %Dimensionless enthalpy array
+    H = porNonH_fun(phi,T); %Dimensionless porosity array
 
+    figure();
+    contourf(X,Y,phiGr);
+    
+    figure();
+    contourf(X,Y,TGr);   
+    
     %%%%
     %initializing tracer with max conc. unity in a certain region
     %1. Organic tracer
     %dimensionless z = 0.8 to 1.0
     trc1 = ones(Grid.p.N,1); %initializing tracer with max conc. unity
-    trc1(Y(:)<0.975) = 0;    %How thick is the organics layer? 1 - 0.975 dimensional units
+    trc1(Y(:)<2.85) = 0;    %How thick is the organics layer? 1 - 0.975 dimensional units
     
-    trc1(phiGr>0.1) = 1;     %Melted region being initialized
-    trc1(Y(:)<0.1) = 0;      %Taking out the ocean
+    trc1(phiGr>0.05) = 1;     %Melted region being initialized
+    trc1(Y(:)<0.05) = 0;      %Taking out the ocean
     
     %Clathrates tracer
     %dimensionless z = 0.8 to 1.0
     trc2 = ones(Grid.p.N,1); %initializing tracer with max conc. unity
-    trc2(Y(:)<0.9) = 0;      %How thick is the clathrate layer? 1 - 0.975 dimensional units
+    trc2(Y(:)<2.5) = 0;    %How thick is the clathrate layer? 1 - 0.975 dimensional units
     
-    trc2(phiGr>0.1) = 1;%Melted region being initialized
-    trc2(Y(:)<0.1)  = 1; %second layer
-    trc2(Y(:)<0.0)  = 0; %Taking out the ocean
+    trc2(phiGr>0.1) = 1;   %Melted region being initialized
+    trc2(Y(:)<0.5)  = 1; %second layer
+    trc2(Y(:)<0.0)  = 0;   %Taking out the ocean
     
     %%%%
     
@@ -331,12 +347,10 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         %% Stokes Flow calcualtion
         % make linear operators
         tau = D*2*viscMat*Edot;
-        %L = [tau + Gp * Zd * Dp  ,-Gp;             
-        %    Dp                  ,-Dp * Kdprime * Gp];
-         L = [tau,Gp;                             %Two-phase slurry model
-             Dp,Zp];
-        %L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
-        %    Dp,                    -Dp * Pi_1* Kdprime * Gp];
+         %L = [tau,Gp;                             %Two-phase slurry model
+         %    Dp,Zp];
+        L = [tau+ Gp * Zd * Dp,    -Gp;                 %Darcy-Stokes
+             Dp,                    -Dp * Pi_1* Kdprime * Gp];
         % solve for flow velocities
         u = solve_lbvp(L,fs,B,Param.g,N);
         vx = u(1:Grid.p.Nfx);
@@ -364,8 +378,8 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
                 
         %% Advection of enthalpy, diffusion of temperature
         %AH = build_adv_op(vm,H,dt,Gp,Grid.p,Param.H,'mc')*H; %Upwinding the enthalpy from center to faces
-        AHs = build_adv_op(vm,(1-phi).*(T-1),dt,Gp,Grid.p,Param.H,'mc')*((1-phi).*(T-1)); %Upwinding the solid enthalpy from center to faces %%%%%%%
-        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'mc')*(phi*Pi_6); %Upwinding the fluid enthalpy from center to faces %%%%%%%
+        AHs = build_adv_op(vm,(1-phi).*(T-1),dt,Gp,Grid.p,Param.H,'gd')*((1-phi).*(T-1)); %Upwinding the solid enthalpy from center to faces %%%%%%%
+        AHf = build_adv_op(vf,phi*Pi_6,dt,Gp,Grid.p,Param.H,'gd')*(phi*Pi_6); %Upwinding the fluid enthalpy from center to faces %%%%%%%
         AH  = AHs + AHf; %Combine the advection operator
         
         %AHnew2 = build_adv_op(vm,((1-phi).*(T-1) + phi*Pi_6),dt,Gp,Grid.p,Param.H,'mc')*((1-phi).*(T-1) + phi*Pi_6);
@@ -386,7 +400,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         %Ac1  = Ac1s + Ac1f; %Total transport flux of tracer 1 %%%%
         phi_face_vec = comp_mean(phiPlot,1,1,Grid.p)*ones(Grid.p.Nf,1);
         v_tot = vm.*(1-phi_face_vec) + vf.*phi_face_vec;  %%%% This is where we need to add more variation in velocity
-        Ac1 = build_adv_op(v_tot,trc1,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        Ac1 = build_adv_op(v_tot,trc1,dt,Gp,Grid.p,Param.c,'gd');%Upwinding the tracer conc. from center to faces
         L_c_I = Ip;  % Implicit operator (Unity as the method is explicit) 
         L_c_E1 = Ip - dt*(Dp * Ac1);% Explicit operator of tracer advection
         RHS_c1 = L_c_E1 * trc1 + (fn_c) * dt; %Forming the vector B of Ax = B
@@ -397,7 +411,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         %Ac2s = build_adv_op(vm,trc2.*(1-phi),dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (solid)  %%%%
         %Ac2f = build_adv_op(vf,trc2.*phi,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (fluid) %%%%       
         %Ac2  = Ac2s + Ac2f; %Total transport flux of tracer 1 %%%%
-        Ac2 = build_adv_op(v_tot,trc2,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
+        Ac2 = build_adv_op(v_tot,trc2,dt,Gp,Grid.p,Param.c,'gd');%Upwinding the tracer conc. from center to faces
         L_c_E2 = Ip - dt*(Dp * Ac2);% Explicit operator of tracer advection
         RHS_c2 = L_c_E2 * trc2 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc2 = solve_lbvp(L_c_I,RHS_c2, B_c, Param.c.g,N_c); %time marching the tracer equation
@@ -435,9 +449,9 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000 %1500 to 5000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >10000 %1500 to 5000
             % save point
-            save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
+            save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) '.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
@@ -450,9 +464,58 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
             blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
             
              i
+             
+
+            %streamfunction plot
+            hh=figure('Visible', 'on'); %For visibility: h=figure(4);
+            set(gcf,'units','points','position',[0,0,600,600])
+            % Enlarge figure to full screen.
+            %set(gcf, 'Position', [50 50 1500 600])  
+            tt = tiledlayout(1,2);
+            tt.TileSpacing = 'none';
+            t = sgtitle(sprintf('time=%.3f years',tTot)); t.FontSize = 25; t.FontName = 'Times';   
+            a1 = nexttile(tt);
+            hold on
+            axis normal
+            Tplot_dummy=Tplot;
+            contourf(-X*d/1e3,Y*d/1e3-Grid.p.dy,Tplot_dummy*DT+T_t,40,'linestyle','none'),view(2),hold on
+            caxis([min(Tplot(:)) max(Tplot(:))]*DT+T_t);
+            colormap(gca, reds);  % You can choose a different colormap if desired
+            c1 = colorbar('SouthOutside');           
+            c1.Label.String = 'Temperature, K';
+            %xlabel('x-dir, km');
+            xlabel('.');
+            ylabel('z-dir, km');
+            set(a1,'box','on','xtick',[-30, -20, -10]);
+            %colormap(ax1,reds);         
+            xlim([-max(X*d/1e3,[],'all'), 0]);
+            ylim([0, max(Y*d/1e3-Grid.p.dy,[],'all')]);
+            axis normal
+            hold on
+            a2 = nexttile(tt);
+            %contourf(X,Y,reshape(phi,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
+            phi_dummy=phi;  
+            %phi_dummy(phi_dummy<=1e-16) = NaN; 
+            contourf(X*d/1e3,Y*d/1e3-Grid.p.dy,reshape(phi_dummy,Grid.p.Ny,Grid.p.Nx),40,'linestyle','none'),view(2),hold on
+            colormap(gca, blues);  % You can choose a different colormap if desired
+            c2 = colorbar('SouthOutside');
+            caxis([0 1]);
+            ylim([0, max(Y*d/1e3-Grid.p.dy,[],'all')]);
+            xlim([0,max(X*d/1e3,[],'all')]);
+            set(a2,'box','on','yticklabel',[],'xtick',[0, 10, 20, 30]);
+            xlabel('radius, km');
+            c2.Label.String = 'Melt fraction, 1';          
+%             if i<1500
+            axis normal
+            tt.TileSpacing = 'none';
+            set(gca,'Layer','top')
+            saveas(hh,sprintf('../figures/newres_fig%d_imp.png',i)); 
+            saveas(hh,sprintf('../figures/pdfnewres_fig%d_imp.pdf',i)); 
+             
             %streamfunction plot
             h=figure('Visible', 'off'); %For visibility: h=figure(4);
             set(gcf,'units','points','position',[0,0,3125,1250])
+            ylim([0, max(Y*d/1e3-Grid.p.dy,[],'all')]);
             % Enlarge figure to full screen.
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
@@ -516,9 +579,16 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
             
-            if i<1500
-                saveas(h,sprintf('../figures/res_fig%d.png',i));            
+            if rem(i,100)==0
+                            save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) '.mat'],...
+                'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
+                'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             end
+            
+%             if i<1500
+            saveas(h,sprintf('../figures/res_fig%d.png',i)); 
+%             end
+
             %{
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
