@@ -26,7 +26,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     warning off; % matrix is close to singular due to viscosity contrast
     %% Load initial condition to be evolved
     % make ice shell thickness based on impact code passed from iSALE
-    if fn == 'Wakita'
+    if fn == 'Wakita-Stokes'
         d = 20*1e3; % ice shell thickness, m
     end
 
@@ -96,7 +96,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 0;%5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -130,15 +130,15 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     phiGr = phi;%reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
 
     %%%%
-    %vertical variation
-    %TGr_layer = kron(linspace(1,T(2,end),2*grZ)',ones(1,Grid.p.Nx));
-    
-    Temp_Wakita = readtable('../initial_conditions/Wakita_temperature_profile_hc10.txt');
-    
-    
-    %Tlayer = -10; %Degree Celsius; temperature of layer
+    Tlayer = -17; %Wakita's temp [C]
+    Wakita_data = table2array(readtable('../initial_conditions/Wakita_temperature_profile_hc10.txt'));
+    Temp_Wakita = (spline(flipud(Wakita_data(:,1))-40e3,Wakita_data(:,2),kron(d*fliplr(linspace(1,2,2*grZ))',ones(1,Grid.p.Nx))) - T_t)/DT;
+    TGr_layer   = Temp_Wakita
     % Adding a layer of temperate ice (fixed temperature)
-    TGr_layer   = (Tlayer+T_b - T_t)/DT*ones(2*grZ,Grid.p.Nx);%T(2,end)*ones(2*grZ,Grid.p.Nx);  %melting temperature in the ice %%%%
+    %vertical variation
+    %Tlayer = -10; %Degree Celsius; temperature of layer
+    %TGr_layer = kron(linspace(1,T(2,end),2*grZ)',ones(1,Grid.p.Nx)); %vertical variation
+    %TGr_layer   = (Tlayer+T_b - T_t)/DT*ones(2*grZ,Grid.p.Nx);%T(2,end)*ones(2*grZ,Grid.p.Nx);  %melting temperature in the ice %%%%
     phiGr_layer = zeros(2*grZ,Grid.p.Nx);
     %%%%
     
@@ -453,7 +453,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >25000 %1500 to 5000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >100000 %1500 to 5000
             % save point
             save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'kc' num2str(kc) 'Tlayer' num2str(Tlayer) 'C.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...

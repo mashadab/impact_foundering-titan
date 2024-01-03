@@ -2,7 +2,7 @@
 clear all; close all;
 %% model parameters
 % manannan crater key from Cox and Bauer, 2015 simulations
-cox_and_bauer_impact_key = 'Wakita';
+cox_and_bauer_impact_key = 'Wakita-Stokes';
 basal_viscosity = 1e14; % basal viscosity of ice
 viscosity_activation_energy = 50e3; % viscosity activation energy
 %% model run simulation
