@@ -1,4 +1,4 @@
-function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a)
+function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     %{
     Function to evolve impact melt chambers on Europa. Simulations end
     when there is a negligible amount of melt left from the impact. The
@@ -38,8 +38,37 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     fp = '../initial_conditions/'; %loading the initial conditions
     load([fp 'Wakita_data_cropped_high_res.mat']); %loading porosity phi and temp T
 
-    T   = flipud(Tdata);
-    phi = flipud(phidata);
+    phi_Shigeru =importdata('./Shigeru_data/hc10_melt_t0.dat');  %percent melt fraction percentage [%] with x and y in km
+    T_Shigeru   =importdata('./Shigeru_data/hc10_temp_t0.dat');  %Temperature [K]
+    
+    XX = linspace(0,120,1200);  %in km
+    YY = linspace(0,60,600);  %in km
+    [Xf,Yf] = meshgrid(XX,YY);  %in km
+
+    T   = flipud(griddata(T_Shigeru(:,1),T_Shigeru(:,2),T_Shigeru(:,3),Xf,Yf));
+    phi = flipud(griddata(phi_Shigeru(:,1),phi_Shigeru(:,2),phi_Shigeru(:,3),Xf,Yf)/100);
+    phi(phi<0) = 0;
+    %phi(phi>0) = 1;
+
+    phi(isnan(phi))=0;   %near surface melt in vacuum [K]
+    T(isnan(T))=94; %near surface temperature in vacuum [K]
+    
+    dX = XX(2) - XX(1); dY = YY(2) - YY(1);
+    
+    %Initial volume
+    % get initial melt volumes: phiOrig, m^3
+    total_vol_init = sum(sum(phi(1:end,:),1).* (pi.*((XX + dX/2).^2 - (XX - dX/2).^2))*dY)
+    
+    %Plot contours
+    figure()
+    contourf(Xf,Yf,T);
+    colorbar
+    figure()
+    contourf(Xf,Yf,phi);
+    colorbar()
+    
+    %T   = flipud(Tdata);
+    %phi = flipud(phidata);
     
     %% Set physical parameters and make dimensionless scales
     % physical parameters for ice
@@ -116,11 +145,11 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
 
     %% build cylindirical grid for numerical solution
     % build grid
-    grRes = size(Ydata,2); % grid resolution in radial direction
-    grZ = size(Ydata,1); % grid resolution in radial direction
+    grRes = size(T,2); % grid resolution in radial direction
+    grZ = size(T,1); % grid resolution in radial direction
     ocTh = floor(3*grZ/5); % make ocean below the ice shell: 1/5 factor being 20% of the ice shell
-    Gridp.xmin = 0; Gridp.xmax = 1.5; Gridp.Nx = grRes; %radial direction
-    Gridp.ymin = -3/5; Gridp.ymax = 3; Gridp.Ny = 3*grZ+ocTh; %vertical direction
+    Gridp.xmin = 0; Gridp.xmax = 120e3/d; Gridp.Nx = grRes; %radial direction
+    Gridp.ymin = 0; Gridp.ymax = 60e3/d;  Gridp.Ny = grZ; %vertical direction
     Gridp.geom = 'cylindrical_rz';       %geometry type: cylinderical r-z coordinates
     Grid = build_stokes_grid_cyl(Gridp); %build grid for Stokes equation in 
     [X,Y]= meshgrid(Grid.p.xc,Grid.p.yc);
@@ -129,21 +158,9 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     TGr = T;%reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
     phiGr = phi;%reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
 
-    %%%%
-    Tlayer = -17; %Wakita's temp [C]
-    Wakita_data = table2array(readtable('../initial_conditions/Wakita_temperature_profile_hc10.txt'));
-    Temp_Wakita = (spline(flipud(Wakita_data(:,1))-40e3,Wakita_data(:,2),kron(d*fliplr(linspace(1,2,2*grZ))',ones(1,Grid.p.Nx))) - T_t)/DT;
-    TGr_layer   = Temp_Wakita
-    % Adding a layer of temperate ice (fixed temperature)
-    %vertical variation
-    %Tlayer = -10; %Degree Celsius; temperature of layer
-    %TGr_layer = kron(linspace(1,T(2,end),2*grZ)',ones(1,Grid.p.Nx)); %vertical variation
-    %TGr_layer   = (Tlayer+T_b - T_t)/DT*ones(2*grZ,Grid.p.Nx);%T(2,end)*ones(2*grZ,Grid.p.Nx);  %melting temperature in the ice %%%%
-    phiGr_layer = zeros(2*grZ,Grid.p.Nx);
-    %%%%
     
     % get initial melt volumes: phiOrig, m^3
-    phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
+    phiOrig = sum(sum(phiGr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
     % First sum is for porosity in the z direction since volume is same
     % Second sum is after multiplying the grid volume at bottom cells
     % Lastly d^3 comes from the redimensionalization to calculate melt volumes
@@ -155,8 +172,8 @@ function impactorTempMeltFuncDarcyStokesModPresForm2StokesTitandata(fn,eta_0,E_a
     phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
     
     % combine ice shell and ocean to get the entire domain fields
-    TGr = [TOc; TGr_layer;TGr]; %Temperature, K
-    phiGr = [phiOc;phiGr_layer; phiGr]; %Porosity or melt fraction
+    TGr = [TOc;TGr]; %Temperature, K
+    phiGr = [phiOc; phiGr]; %Porosity or melt fraction
     T = TGr(:); %Making Temperature array from grid, N by 1
     phi = phiGr(:); %Making porosity array from grid, N by 1
     H = porNonH_fun(phi,T); %Dimensionless porosity array
