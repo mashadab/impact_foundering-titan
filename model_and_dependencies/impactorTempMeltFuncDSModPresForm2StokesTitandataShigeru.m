@@ -97,8 +97,8 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     
     % temperature and melt fraction dependent viscosity, Pa s
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
-    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
-    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2); %Old viscosity
+    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2).*(1-phi); %%%%New viscosity of solid (1-phi)*mu_s
+    %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2); %Old viscosity
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-2); %Old viscosity with water softening
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
     % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
@@ -130,7 +130,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 5.6e-16; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 1.85e-9; %Absolute permeability [in m^2] (5.6e-11m2 From Meyer and Hewitt (2017); 1.85e-9 from Hesse et al (2022)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -162,10 +162,11 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     % convert inital condition to grid
     TGr = T;%reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
     phiGr = phi;%reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
-
+    phiInit = phiGr;
     
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
+    
     % First sum is for porosity in the z direction since volume is same
     % Second sum is after multiplying the grid volume at bottom cells
     % Lastly d^3 comes from the redimensionalization to calculate melt volumes
@@ -384,18 +385,29 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
         vx = u(1:Grid.p.Nfx);
         vy = u(Grid.p.Nfx+1:(Grid.p.Nfx+Grid.p.Nfy));
         vm = [vx;vy];       %velocity of the solid phase, m/s
-        vmax= max(abs(vm)); %largest solid velocity
+        vmax= max(vm); %largest solid velocity
         p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure coupled with gravitational head
         %vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
         vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p ); %calculate the dimless fluid velocity %%%%
 
         p  = p - (rho_f/rho_i) * Pi_5 * Y(:);  %Calculating fluid from overall pressure  %%%%
-        vfmax= max(abs(vf)); %largest solid velocity        
-        
+        vfmax= max(vf); %largest solid velocity        
         % Adaptive time stepping based on competition b/w CFL and Neumann
         % conditions in each direction; CFL number set to 0.8
-        dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,Grid.p.dx/vfmax,Grid.p.dy/vfmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.1;
         
+        %[min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)]
+        dt = max(min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)]))*0.01;
+        
+        %%%%
+        %{ 
+        %if things get crazy
+        dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.001;
+        
+        if tTot > 25 %increase CFL by 10 times after 25 years
+        dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.01;
+        end
+        %}
+        %%%%
         %% non-linear thermal conducitivity matricies
         kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
         % select near boundary ocean cells
@@ -433,7 +445,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
         L_c_E1 = Ip - dt*(Dp * Ac1);% Explicit operator of tracer advection
         RHS_c1 = L_c_E1 * trc1 + (fn_c) * dt; %Forming the vector B of Ax = B
         trc1 = solve_lbvp(L_c_I,RHS_c1, B_c, Param.c.g,N_c); %time marching the tracer equation
-        
+
         %Clathrates
         %Ac2 = build_adv_op(vm,trc2,dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces
         %Ac2s = build_adv_op(vm,trc2.*(1-phi),dt,Gp,Grid.p,Param.c,'mc');%Upwinding the tracer conc. from center to faces (solid)  %%%%
@@ -484,15 +496,23 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
         end
-    
+
         %% PLOTTING
-         if mod(i,100) == 0
+         if mod(i,100) == 0 || i==1
+            tTot
             greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
             reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
             blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
             
              i
-             
+            if i==1
+                figure();
+                contourf(X*d/1e3,Y*d/1e3,reshape(phi,Grid.p.Ny,Grid.p.Nx)-phiInit);
+                c2 = colorbar('EastOutside');
+                c2.Label.String = '\Delta \phi';
+                xlabel('radius, km');
+                ylabel('z-dir, km');
+            end
 
             %streamfunction plot
             hh=figure('Visible', 'off'); %For visibility: h=figure(4);
@@ -542,7 +562,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
             
              
         %% PLOTTING
-         if mod(i,100) == 0
+         if mod(i,100) == 0 || i==1
             greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
             reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
             blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
@@ -668,7 +688,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
             
-            if rem(i,100)==0
+            if rem(i,100)==0 || i==1
                             save(['../Output/Shigeru_impact_' fn '_eta0_' num2str(log10(eta_0)) 'kc' num2str(kc) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'C.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig','trc1','trc2')
