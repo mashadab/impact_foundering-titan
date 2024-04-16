@@ -186,7 +186,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     
     T = TGr(:); %Making Temperature array from grid, N by 1
 
-    T = ones(size(T)); TGr = ones(size(TGr)); %Testing volume by setting temperature to be 273 everywhere %%%%try
+    %T = ones(size(T)); TGr = ones(size(TGr)); %Testing volume by setting temperature to be 273 everywhere %%%%try
     
     phi = phiGr(:); %Making porosity array from grid, N by 1
     H = porNonH_fun(phi,T); %Dimensionless porosity array

@@ -347,7 +347,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         p  = u((Grid.p.Nfx+Grid.p.Nfy+1):end); %Dimless fluid pressure coupled with gravitational head
         %vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p + (rho_w/rho_i) * Pi_5 * [zeros(Grid.p.Nfx,1); ones(Grid.p.Nfy,1)]); %calculate the dimless fluid velocity %%%%
         vf = vm - Pi_1 * comp_mean(phiPlot.^(nn-1),1,1,Grid.p) * ( Gp * p ); %calculate the dimless fluid velocity %%%%
-
+        vfy = vf(Grid.p.Nfx+1:(Grid.p.Nfx+Grid.p.Nfy)); %y-directional fluid velocity
         p  = p - (rho_f/rho_i) * Pi_5 * Y(:);  %Calculating fluid from overall pressure  %%%%
         vfmax= max(abs(vf)); %largest solid velocity        
         
@@ -409,7 +409,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         abInd = 5;
         phiGr = reshape(phi,Grid.p.Ny,Grid.p.Nx);
         bdPhi = mean(phiGr(ocTh+abInd:ocTh+abInd+1,:),1).*Grid.p.V(Grid.p.dof_ymin)';
-        vyGr = reshape(vy,Grid.y.Ny,Grid.y.Nx);
+        vyGr = reshape(vfy,Grid.y.Ny,Grid.y.Nx);
         bdVy = vyGr(ocTh+abInd+1,:);
         meltTrans = bdPhi .* bdVy / Grid.p.dy * dt * d^3;
         phiDrain2 = phiDrain2 - sum(meltTrans(bdVy < 0)); % m^3
@@ -418,7 +418,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         % plane 2
         phiGr = reshape(phi,Grid.p.Ny,Grid.p.Nx);
         bdPhi = mean(phiGr(ocTh+(abInd-1):ocTh+(abInd-1)+1,:),1).*Grid.p.V(Grid.p.dof_ymin)';
-        vyGr = reshape(vy,Grid.y.Ny,Grid.y.Nx);
+        vyGr = reshape(vfy,Grid.y.Ny,Grid.y.Nx);
         bdVy = vyGr(ocTh+(abInd-1)+1,:);
         meltTrans = bdPhi .* bdVy / Grid.p.dy * dt * d^3;
         phiDrain1 = phiDrain1 - sum(meltTrans(bdVy < 0)); % m^3
