@@ -3,7 +3,7 @@
     set(groot,'defaultAxesFontSize',20)
     set(groot,'defaulttextinterpreter','latex')
     set(groot,'defaultAxesTickLabelInterpreter','latex')
-    set(groot,'defaultLegendInxterpreter','latex')
+    set(groot,'defaultLegendInterpreter','latex')
     set(groot, 'DefaultFigureVisible', 'on');
 
 blue = [57 106 177]./255;
@@ -180,7 +180,7 @@ while i<=17200
 %Individual file
 load(sprintf("../Output/Shigeru_impact_Wakita-Stokes_eta0_14kc5.6e-12_Ea_50_output_%sC.mat",num2str(i))); %loading file
 
-Time_arreminus12 = [Time_arreminus12;tVec(i)] %Time array [years]
+Time_arreminus12 = [Time_arreminus12;tVec(i)]; %Time array [years]
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
 phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
 
@@ -281,3 +281,49 @@ legend('$$\textrm{k}_0=5.6\times10^{-11}\textrm{m}^2$$','$$\textrm{k}_0=5.6\time
 set(gca, 'YDir','reverse')
 saveas(hh,sprintf('../figures/CombinedPeneDepth_morelines.png')); 
 saveas(hh,sprintf('../figures/CombinedPeneDepth_morelines.pdf'));
+
+
+
+
+
+%Testing purposes only
+d = 20e3
+load("../Output/Simple-test_eta0_14kc1.85e-09_Ea_50_output_1C.mat"); %loading file
+interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+Volumetest = [sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)];
+Time_arrtest = [tVec];
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+10);  %Just staying away from ocean
+pene_depthtest= [Grid.p.yc(pene_ind(1))];
+i = 100;
+
+%kc5.6e-11m2
+while i<=13700
+%Individual file
+load(sprintf("../Output/Simple-test_eta0_14kc1.85e-09_Ea_50_output_%sC.mat",num2str(i))); %loading file
+Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+
+Volumetest = [Volumetest;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
+
+%Penetration depth
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+10);  %Just staying away from ocean
+pene_depthtest = [pene_depthtest;Grid.p.yc(pene_ind(1))];
+
+i = i+100;
+end
+
+hh=figure()
+yline(phiOrig/1e9,'-','Linewidth',5,'color',red);
+hold on
+plot(Time_arrtest,Volumetest/1e9,'-','Linewidth',5,'color',blue);
+plot(tVec,phiDrain1Vec/1e9,'-','Linewidth',5,'color',green);
+xlabel('Time [years]');
+ylabel('Melt volume [km$$^3$$]');
+legend('Total','Left','Delivered','location','southwest');
+saveas(hh,sprintf('../figures/constant_temperature_vol.png')); 
+saveas(hh,sprintf('../figures/constant_temperature_vol.pdf'));

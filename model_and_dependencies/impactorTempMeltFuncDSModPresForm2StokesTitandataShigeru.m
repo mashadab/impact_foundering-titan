@@ -237,6 +237,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     % fix bottom heat flux, Neumann BC, to maintain linear geotherm in ice shell
     qPrime = 1;
     %%%%
+    %{
     Param.H(1).dof_dir = [Grid.p.dof_ymax];
     Param.H(1).dof_f_dir = [Grid.p.dof_f_ymax];
     Param.H(1).g = [H0*ones(length(Grid.p.dof_ymax),1)];
@@ -244,8 +245,8 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax;Grid.p.dof_ymin];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax;Grid.p.dof_f_ymin];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax;qPrime*ones(size(Grid.p.dof_f_ymin))];
-    
-    %{
+       %}
+
     Param.H(1).dof_dir = [Grid.p.dof_ymax,Grid.p.dof_ymin];
     Param.H(1).dof_f_dir = [Grid.p.dof_f_ymax,Grid.p.dof_f_ymin];
     Param.H(1).g = [H0*ones(length(Grid.p.dof_ymax),1);H(Grid.p.dof_ymin)];
@@ -253,7 +254,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeru(fn,eta_0,E_a)
     Param.H(1).dof_neu = [Grid.p.dof_xmin;Grid.p.dof_xmax];
     Param.H(1).dof_f_neu = [Grid.p.dof_f_xmin;Grid.p.dof_f_xmax];
     Param.H(1).qb = [0*Grid.p.dof_f_xmin;0*Grid.p.dof_f_xmax];    
-    %}
+ 
     %%%%
     
     [BH,NH,fn_H] = build_bnd(Param.H,Grid.p,Ip);
