@@ -68,7 +68,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2); %Old viscosity
-    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2).*(1-phi); %Old viscosity with water softening
+    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1).*(1-phi)).*exp(-porViscPar*phi),1e-5); %Old viscosity with water softening
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
     % threshold 1e-2 means two orders of magnitude reduction is essentially inviscid
     c_fun = @(nonT) a+b*(DT*nonT+T_t); %specific heat function, J/(kg K)
@@ -99,7 +99,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 5.6e-11; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
+    kc = 1.85e-16; %Absolute permeability [in m^2] (From Meyer and Hewitt (2017)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -130,7 +130,8 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
     % convert inital condition to grid
     TGr = reshape(T,grRes,Grid.p.Nx);     %Temp on the grid, K
     phiGr = reshape(phi,grRes,Grid.p.Nx); %porosity on the grid
-    
+    Xc = X(:); Yc = Y(:);
+
     % get initial melt volumes: phiOrig, m^3
     phiOrig = sum(sum(phiGr(10:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)
     % First sum is for porosity in the z direction since volume is same
@@ -141,11 +142,13 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
    
     % build ocean layer
     TOc = ones(ocTh,Grid.p.Nx);    %Temperature of ocean, K
-    phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
+    phiOc = zeros(ocTh,Grid.p.Nx);  %Porosity of ocean, K %Making it all ice, temperate
     
     % combine ice shell and ocean to get the entire domain fields
     TGr = [TOc; TGr]; %Temperature, K
+
     phiGr = [phiOc; phiGr]; %Porosity or melt fraction
+    phiGr(Y<0.25) = 0;  %%%%new line
     T = TGr(:); %Making Temperature array from grid, N by 1
     phi = phiGr(:); %Making porosity array from grid, N by 1
     H = porNonH_fun(phi,T); %Dimensionless enthalpy array
@@ -353,7 +356,7 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         
         % Adaptive time stepping based on competition b/w CFL and Neumann
         % conditions in each direction; CFL number set to 0.8
-        dt = min([0.5*Grid.p.dx^2/kappa_c, Grid.p.dx/vmax,Grid.p.dx/vfmax,Grid.p.dy/vfmax,0.5*Grid.p.dy^2/kappa_c, Grid.p.dy/vmax])*0.1;
+        dt = max(min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)]))*0.1;
         
         %% non-linear thermal conducitivity matricies
         kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
@@ -436,16 +439,16 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >5000 %1500 to 5000
-            % save point
-            save(['impact_' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output.mat'],...
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >100000 %1500 to 5000
+            %  point
+            save(['' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'kc' num2str(kc) 'C.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
                 'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig')
             break
         end
     
         %% PLOTTING
-         if mod(i,20) == 0
+         if mod(i,100) == 0  || i==1
             greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
             reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
             blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
@@ -516,10 +519,15 @@ function impactorTempMeltFuncDarcyStokesModPresForm2Stokes(fn,eta_0,E_a)
             ylabel('z-dir, km');
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
-            
-            if i<1500
-                saveas(h,sprintf('../figures/res_fig%d.png',i));            
+            if rem(i,100)==0 || i==1
+                            save(['../Output/Europa' fn '_eta0_' num2str(log10(eta_0)) 'kc' num2str(kc) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'C.mat'],...
+                'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
+                'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig','trc1','trc2')
             end
+
+            %if i<1500
+            saveas(h,sprintf('../figures/Europa_res_fig%dkc%d.png',i, kc));          
+            %end
             %{
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
             set(gcf, 'Position', [50 50 1500 600])
