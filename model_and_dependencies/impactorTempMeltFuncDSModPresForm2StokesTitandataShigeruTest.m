@@ -132,7 +132,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 1.85e-9; %Absolute permeability [in m^2] (5.6e-11m2 From Meyer and Hewitt (2017); 1.85e-9 from Hesse et al (2022)) 
+    kc = 1.85e-12; %Absolute permeability [in m^2] (5.6e-11m2 From Meyer and Hewitt (2017); 1.85e-9 from Hesse et al (2022)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -156,7 +156,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     grRes = size(T,2); % grid resolution in radial direction
     grZ = size(T,1); % grid resolution in radial direction
     ocTh = floor(grZ/5); % make ocean below the ice shell: 1/5 factor being 20% of the ice shell
-    Gridp.xmin = 0; Gridp.xmax = 1.5; Gridp.Nx = grRes; %radial direction
+    Gridp.xmin = 0; Gridp.xmax = 1; Gridp.Nx = grRes; %radial direction
     Gridp.ymin = -3/5; Gridp.ymax = 3; Gridp.Ny = grZ+ocTh; %vertical direction
     Gridp.geom = 'cylindrical_rz';       %geometry type: cylinderical r-z coordinates
     Grid = build_stokes_grid_cyl(Gridp); %build grid for Stokes equation in 
@@ -177,7 +177,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
    
     % build ocean layer
     TOc = ones(ocTh,Grid.p.Nx);    %Temperature of ocean, K
-    phiOc = ones(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
+    phiOc = zeros(ocTh,Grid.p.Nx);  %Porosity of ocean, K 
     
     
     % combine ice shell and ocean to get the entire domain fields
@@ -310,6 +310,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     
     %% temporal evolution
     for i = 1:1e9
+        T(T>1) = 1; %Stopping temperature to go beyond 1
         
         % calculate porosity from enthalpy
         [T,phi] = enthMelt(H,mixZone,nonT_fun,phi_fun,TWater_fun);
@@ -407,17 +408,27 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
         % conditions in each direction; CFL number set to 0.8
         
         %[min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)]
-        dt = max(min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)]))*0.01;
+        %dt = max(min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)]))*0.01;
+
+        %if max(isnan(u))==1
+        %    'NaNs detected';
+        %    break
+        %end
         
         %%%%
-        %{ 
-        %if things get crazy
-        dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.001;
         
-        if tTot > 25 %increase CFL by 10 times after 25 years
+        %if things get crazy
         dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.01;
-        end
-        %}
+
+                
+        %if tTot > 50 %increase CFL by 10 times after 25 years
+        %dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.001;
+        %end
+        
+        %if tTot > 20 %increase CFL by 10 times after 25 years
+        %dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.01;
+        %end
+        
         %%%%
         %% non-linear thermal conducitivity matricies
         kappaPrime = porKappaPrime_fun(phi,T); %thermal conductivity, K
@@ -500,7 +511,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >100000 %1500 to 5000
+        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >200000 %1500 to 5000
             %  point
             save(['' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'kc' num2str(kc) 'C.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -508,8 +519,14 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
             break
         end
 
+           if rem(i,100)==0 || i==1
+                            save(['../Output/' fn '_eta0_' num2str(log10(eta_0)) 'kc' num2str(kc) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'C.mat'],...
+                'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
+                'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig','trc1','trc2')
+            end
+        
         %% PLOTTING
-         if mod(i,100) == 0 || i==1
+         if mod(i,1000) == 0 || i==1
             tTot
             greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
             reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
@@ -573,14 +590,14 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
             
              
         %% PLOTTING
-         if mod(i,100) == 0 || i==1
+         if mod(i,1000) == 0 || i==1
             greens = interp1([0;1],[1 1 1; 0.45, 0.65, 0.38],linspace(0,1,256));
             reds = interp1([0;1],[1 1 1;  190/255  30/255  45/255],linspace(0,1,256));
             blues = interp1([0;1],[1 1 1; 39/255  170/255  225/255],linspace(0,1,256));
             
              i
              
-
+            %{
             %combined-melt-tracer plot  
             
             hhh=figure('Visible', 'off'); %For visibility: h=figure(4);
@@ -630,6 +647,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
             set(gca,'Layer','top')
             saveas(hhh,sprintf('../figures/organics_newres_test__fig%d_imp_kc%d.png',i,kc)); 
             saveas(hhh,sprintf('../figures/organics_pdfnewres_test__fig%d_imp_kc%d.pdf',i,kc));
+            %}
             
             
             %temp-melt plot
@@ -699,15 +717,10 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
             c4.Label.String = 'Clathrates conc., 1';
             colormap(ax4,flipud(gray));
             
-            if rem(i,100)==0 || i==1
-                            save(['../Output/' fn '_eta0_' num2str(log10(eta_0)) 'kc' num2str(kc) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'C.mat'],...
-                'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
-                'phiFracRem','T','phi','tVec','phiDrain1Vec','phiDrain2Vec','phiOrig','trc1','trc2')
-            end
-            
 %             if i<1500
             saveas(h,sprintf('../figures/res_fig%dkc%d.png',i, kc)); 
 %             end
+               
 
             %{
             [PSI,psi_min,psi_max] = comp_streamfun(vm,Grid.p);
