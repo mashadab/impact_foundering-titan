@@ -155,7 +155,9 @@ legend('Darcy-Stokes','Stokes');
 
 
 %Combined
-hh=figure()
+hh=figure
+hh.Units = 'centimeters'
+hh.Position = [1,1,20,15];
 set(gcf,'visible','on')
 yyaxis left
 semilogx(Time_arrDS,VolumeDS/1e9,'k-','Linewidth',3)
@@ -181,10 +183,10 @@ set(gca, 'YDir','reverse')
 ax = gca
 ax.YColor = red;
 ylabel('Penetration depth [km]','Color',red);
-lh = legend('$$\textrm{k}_0=1.85\cdot10^{-8}\textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot 10^{-10}\textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot 10^{-16}\textrm{m}^2$$','location','southwest');
-set( lh, 'Box', 'off' ) ;
+%lh = legend('$$\textrm{k}_0=1.85\cdot10^{-8}\textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot 10^{-10}\textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot 10^{-16}\textrm{m}^2$$','location','southwest');
+%set( lh, 'Box', 'off' ) ;
 saveas(hh,sprintf('../figures/CombinedVolandpene.png')); 
-saveas(hh,sprintf('../figures/CombinedVolandpene.png.pdf')); 
+saveas(hh,sprintf('../figures/CombinedVolandpene.pdf')); 
 
 
 %Combined Stokes
