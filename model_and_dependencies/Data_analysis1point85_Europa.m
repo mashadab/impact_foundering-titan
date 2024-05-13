@@ -186,7 +186,6 @@ set( lh, 'Box', 'off' ) ;
 saveas(hh,sprintf('../figures/CombinedVolandpene.png')); 
 saveas(hh,sprintf('../figures/CombinedVolandpene.png.pdf')); 
 
-stop
 
 %Combined Stokes
 hh=figure()
@@ -245,125 +244,8 @@ saveas(hh,sprintf('../figures/CombinedVol.pdf'));
 
 %%Combined all k0
 
-%k0 = 5.6e-12\textrm{m}^2
-Volumeeminus12 = [];
-Time_arreminus12 = [];
-pene_deptheminus12= [];
-i = 100;
-
-
-while i<=17200
-%Individual file
-load(sprintf("../Output/Shigeru_impact_Wakita-Stokes_eta0_14kc5.6e-12_Ea_50_output_%sC.mat",num2str(i))); %loading file
-
-Time_arreminus12 = [Time_arreminus12;tVec(i)]; %Time array [years]
-phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
-phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
-
-%Calculating volume
-Volumeeminus12 = [Volumeeminus12;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
-
-%Penetration depth
-pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
-pene_ind(pene_ind>interface+1);  %Just staying away from ocean
-pene_deptheminus12 = [pene_deptheminus12;Grid.p.yc(pene_ind(1))];
-
-i = i+100
-end
-
-%k0 = 5.6e-13\textrm{m}^2
-Volumeeminus13 = [];
-Time_arreminus13 = [];
-pene_deptheminus13= [];
-i = 100;
-
-load(sprintf("../Output/Shigeru_impact_Wakita-Stokes_eta0_14kc5.6e-13_Ea_50_output_1C.mat")); %loading file
-
-
-
-while i<=38400
-%Individual file
-load(sprintf("../Output/Shigeru_impact_Wakita-Stokes_eta0_14kc5.6e-13_Ea_50_output_%sC.mat",num2str(i))); %loading file
-
-Time_arreminus13 = [Time_arreminus13;tVec(i)]; %Time array [years]
-phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
-phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
-
-%Calculating volume
-Volumeeminus13 = [Volumeeminus13;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
-
-%Penetration depth
-pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
-pene_ind(pene_ind>interface+1);  %Just staying away from ocean
-pene_deptheminus13 = [pene_deptheminus13;Grid.p.yc(pene_ind(1))];
-
-i = i+100;
-end
-
-
-%k0 = 5.6e-14\textrm{m}^2
-Volumeeminus14 = [];
-Time_arreminus14 = [];
-pene_deptheminus14= [];
-i = 100;
-while i<=18000
-%Individual file
-load(sprintf("../Output/Shigeru_impact_Wakita-Stokes_eta0_14kc5.6e-14_Ea_50_output_%sC.mat",num2str(i))); %loading file
-
-Time_arreminus14 = [Time_arreminus14;tVec(i)]; %Time array [years]
-phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
-phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
-
-%Calculating volume
-Volumeeminus14 = [Volumeeminus14;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
-
-%Penetration depth
-pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
-pene_ind(pene_ind>interface+1);  %Just staying away from ocean
-pene_deptheminus14 = [pene_deptheminus14;Grid.p.yc(pene_ind(1))];
-
-i = i+100;
-end
-
-
-%Combined Vol
-hh=figure()
-semilogx(Time_arrDS,VolumeDS/1e9,'-','Linewidth',5,'color',red)
-hold on
-semilogx(Time_arreminus12,Volumeeminus12/1e9,'-','Linewidth',5,'color',brown)
-semilogx(Time_arreminus13,Volumeeminus13/1e9,'-','Linewidth',5,'color',green)
-semilogx(Time_arreminus14,Volumeeminus14/1e9,'-','Linewidth',5,'color',black)
-semilogx(Time_arrS,VolumeS/1e9,'-','Linewidth',5,'color',blue)
-xlim([5 1e4]);
-xlabel('Time [years]');
-ylabel('Melt volume [km$$^3$$]');
-legend('$$\textrm{k}_0=5.6\times10^{-11}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-12}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-13}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-14}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-16}\textrm{m}^2$$','location','southwest');
-saveas(hh,sprintf('../figures/CombinedVol_morelines.png')); 
-saveas(hh,sprintf('../figures/CombinedVol_morelines.pdf'));
-
-
-%Combined Penetration depth
-hh=figure()
-semilogx(Time_arrDS,(3*d-pene_depthDS*d)/1e3,'-','Linewidth',5,'color',red)
-hold on
-semilogx(Time_arreminus12,(3*d-pene_deptheminus12*d)/1e3,'-','Linewidth',5,'color',brown)
-semilogx(Time_arreminus13,(3*d-pene_deptheminus13*d)/1e3,'-','Linewidth',5,'color',green)
-semilogx(Time_arreminus14,(3*d-pene_deptheminus14*d)/1e3,'-','Linewidth',5,'color',black)
-semilogx(Time_arrS,(3*d-pene_depthS*d)/1e3,'-','Linewidth',5,'color',blue)
-xlim([5 1e4]);
-xlabel('Time [years]');
-ylabel('Penetration Depth [km]');
-legend('$$\textrm{k}_0=5.6\times10^{-11}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-12}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-13}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-14}\textrm{m}^2$$','$$\textrm{k}_0=5.6\times10^{-16}\textrm{m}^2$$','location','southwest');
-set(gca, 'YDir','reverse')
-saveas(hh,sprintf('../figures/CombinedPeneDepth_morelines.png')); 
-saveas(hh,sprintf('../figures/CombinedPeneDepth_morelines.pdf'));
-
-
-
-
-
 %Testing purposes only
-d = 20e3
+d = 10e3
 load("../Output/Europa03321_eta0_14kc1.85e-08_Ea_50_output_1C.mat"); %loading file
 interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
@@ -376,7 +258,7 @@ pene_depthtest= [Grid.p.yc(pene_ind(1))];
 i = 100;
 
 %kc1.85e-8m2
-while i<=49700
+while i<=22200
 %Individual file
 load(sprintf("../Output/Europa03321_eta0_14kc1.85e-08_Ea_50_output_%sC.mat",num2str(i))); %loading file
 Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
@@ -409,7 +291,7 @@ drain_V_array = [phiDrain1Vec(end)/1e9]; %in km3
 kc_array    = [1.85e-8]; %in m2
 
 %Testing purposes only kc=1.85e-10 m2
-d = 20e3
+d = 10e3
 load("../Output/Europa03321_eta0_14kc1.85e-10_Ea_50_output_1C.mat"); %loading file
 interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
@@ -422,7 +304,7 @@ pene_depthtest= [Grid.p.yc(pene_ind(1))];
 i = 100;
 
 %kc1.85e-10m2
-while i<=57300
+while i<=13600
 %Individual file
 load(sprintf("../Output/Europa03321_eta0_14kc1.85e-10_Ea_50_output_%sC.mat",num2str(i))); %loading file
 Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
@@ -456,7 +338,7 @@ kc_array    = [kc_array; 1.85e-10]; %in m2
 
 
 %kc1.85e-12m2
-d = 20e3
+d = 10e3
 load("../Output/Europa03321_eta0_14kc1.85e-12_Ea_50_output_1C.mat"); %loading file
 interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
@@ -467,7 +349,7 @@ pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
 pene_ind(pene_ind>interface+10);  %Just staying away from ocean
 pene_depthtest= [Grid.p.yc(pene_ind(1))];
 i = 100;
-while i<=124000
+while i<=23100
 %Individual file
 load(sprintf("../Output/Europa03321_eta0_14kc1.85e-12_Ea_50_output_%sC.mat",num2str(i))); %loading file
 Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
@@ -501,7 +383,7 @@ kc_array    = [kc_array; 1.85e-12]; %in m2
 
 
 %kc1.85e-14m2
-d = 20e3
+d = 10e3
 load("../Output/Europa03321_eta0_14kc1.85e-14_Ea_50_output_1C.mat"); %loading file
 interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
@@ -512,7 +394,7 @@ pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
 pene_ind(pene_ind>interface+10);  %Just staying away from ocean
 pene_depthtest= [Grid.p.yc(pene_ind(1))];
 i = 100;
-while i<=108300
+while i<=15000
 %Individual file
 load(sprintf("../Output/Europa03321_eta0_14kc1.85e-14_Ea_50_output_%sC.mat",num2str(i))); %loading file
 Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
@@ -545,7 +427,7 @@ drain_V_array = [drain_V_array; phiDrain1Vec(end)/1e9]; %in km3
 kc_array    = [kc_array; 1.85e-14]; %in m2
 
 %kc1.85e-16m2
-d = 20e3
+d = 10e3
 load("../Output/Europa03321_eta0_14kc1.85e-16_Ea_50_output_1C.mat"); %loading file
 interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
