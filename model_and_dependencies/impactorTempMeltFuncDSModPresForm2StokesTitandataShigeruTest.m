@@ -99,7 +99,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     
     % temperature and melt fraction dependent viscosity, Pa s
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2);
-    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2).*(1-phi); %%%%New viscosity of solid (1-phi)*mu_s
+    barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-5); %%%%New viscosity of solid (1-phi)*mu_s
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi),1e-2); %Old viscosity
     %barrViscPhi = @(nonT,phi) max(exp(Apar*(T_b./(DT.*nonT+T_t)-1)).*exp(-porViscPar*phi).*(1-phi),1e-2); %Old viscosity with water softening
     % viscosity is max of Temp dependence on viscosity, melt dependence, threshold
@@ -132,7 +132,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     Ra = rho_i*grav*alpha*d^3*DT/(eta_0*D_T); % basal Rayleigh number
     
     %%%%%%%%%
-    kc = 1.85e-12; %Absolute permeability [in m^2] (5.6e-11m2 From Meyer and Hewitt (2017); 1.85e-9 from Hesse et al (2022)) 
+    kc = 1.85e-8; %Absolute permeability [in m^2] (5.6e-11m2 From Meyer and Hewitt (2017); 1.85e-9 from Hesse et al (2022)) 
     mu_f = 1e-3;  %Viscosity of water phase [in Pa.s] (Duh)
     rho_f = 1e3;  %Density of water phase [in kg/m^3] (Duh) 
     
@@ -142,7 +142,6 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
     Pi_5 = d^3 * rho_i * grav / (eta_0 * D_T);      %Pi 5 from the notes
     Pi_6 = mixZone;                      %Pi 6 from the notes
     %%%%%%%%%
-  
     
     % non-dimensionalize temperature
     T = (T - T_t)/DT;
@@ -418,7 +417,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
         %%%%
         
         %if things get crazy
-        dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.01;
+        dt = min([min(0.5*Grid.p.dx^2/kappa_c),min(Grid.p.dx/vmax),min(Grid.p.dx/vfmax),min(Grid.p.dy/vfmax),min(0.5*Grid.p.dy^2/kappa_c), min(Grid.p.dy/vmax)])*0.001;
 
                 
         %if tTot > 50 %increase CFL by 10 times after 25 years
@@ -511,7 +510,7 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
         phiFracRem = [phiFracRem phiRem/phiOrig];
 
         % condition for ending simulation
-        if phiFracRem(end) < termFrac || (i > 1000 && phiFracRem(end) > phiFracRem(end-1)) || i >200000 %1500 to 5000
+        if phiFracRem(end) < termFrac || (i > 25000 && phiFracRem(end) > phiFracRem(end-1)) || i >200000 %1500 to 5000
             %  point
             save(['' fn '_eta0_' num2str(log10(eta_0)) '_Ea_' num2str(E_a/1e3) '_output_' num2str(i) 'kc' num2str(kc) 'C.mat'],...
                 'Tplot','phi','Grid','phiDrain1Vec','phiDrain2Vec','phiOrig','tVec',...
@@ -834,8 +833,8 @@ function impactorTempMeltFuncDSModPresForm2StokesTitandataShigeruTest(fn,eta_0,E
             %}
             
             % convert the image to a frame
-            frameno = frameno + 1;
-            FF(frameno) = getframe(gcf) ;
+            %frameno = frameno + 1;
+            %FF(frameno) = getframe(gcf) ;
          end
     end
 %{

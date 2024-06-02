@@ -130,16 +130,20 @@ legend('Darcy-Stokes','Stokes');
 
 
 %Combined
-hh=figure()
+lag = 27;
+hh = figure;
+hh.Units = 'centimeters';
+% [left bottom width height]
+hh.Position = [1,1,20,15]; % should be 19 wide
 yyaxis left
 semilogx(Time_arrDS,VolumeDS/1e9,'k-','Linewidth',3)
 hold on
-semilogx(Time_arrM,VolumeM/1e9,'k.','Linewidth',5)
-semilogx(Time_arrS,VolumeS/1e9,'k--','Linewidth',3)
+semilogx(Time_arrM,VolumeM/1e9,'k-.','Linewidth',3)
+semilogx(Time_arrS(1:end-lag),VolumeS(1:end-lag)/1e9,'k--','Linewidth',3)
 semilogx(Time_arrDS,VolumeDS/1e9,'-','Linewidth',3,'color',blue)
-semilogx(Time_arrM,VolumeM/1e9,'.','Linewidth',5,'color',blue)
+semilogx(Time_arrM,VolumeM/1e9,'-.','Linewidth',3,'color',blue)
 hold on
-semilogx(Time_arrS,VolumeS/1e9,'--','Linewidth',3,'color',blue)
+semilogx(Time_arrS(1:end-lag),VolumeS(1:end-lag)/1e9,'--','Linewidth',3,'color',blue)
 xlabel('Time [years]');
 ylabel('Melt volume [km$$^3$$]','Color',blue);
 ax = gca
@@ -147,9 +151,10 @@ ax.YColor = blue;
 yyaxis right
 semilogx(Time_arrDS,60 - pene_depthDS*d/1e3,'-','Linewidth',3,'color',red)
 hold on
-semilogx(Time_arrM,60 - pene_depthM*d/1e3,'.','Linewidth',5,'color',red)
-semilogx(Time_arrS,60 - pene_depthS*d/1e3,'--','Linewidth',3,'color',red)
-xlim([1e-3,1e5])
+semilogx(Time_arrM,60 - pene_depthM*d/1e3,'-.','Linewidth',3,'color',red)
+semilogx(Time_arrS(1:end-lag),60 - pene_depthS(1:end-lag)*d/1e3,'--','Linewidth',3,'color',red)
+xlim([1e-4,1e5])
+xticks([1e-4,1e-2,1e0,1e2,1e4])
 set(gca, 'YDir','reverse')
 ax = gca
 ax.YColor = red;
@@ -157,7 +162,7 @@ ylabel('Penetration depth [km]','Color',red);
 lh = legend('$$\textrm{k}_0=1.85\cdot10^{-8}\textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot 10^{-10}\textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot 10^{-16}\textrm{m}^2$$','location','southwest');
 set( lh, 'Box', 'off' ) ;
 saveas(hh,sprintf('../figures/CombinedVolandpene.png')); 
-saveas(hh,sprintf('../figures/CombinedVolandpene.png.pdf')); 
+saveas(hh,sprintf('../figures/CombinedVolandpene.pdf')); 
 
 
 %Combined Stokes
@@ -561,10 +566,165 @@ drain_V_array = [drain_V_array; phiDrain1Vec(end)/1e9]; %in km3
 kc_array    = [kc_array; 1.85e-16]; %in m2
 
 
-hhh= figure()
+drain_V_array_Europa = [25.3205, 23.96, 27.062,26.1107, 26.4404];
+
+lag = 27;
+hhh = figure;
+hhh.Units = 'centimeters';
+% [left bottom width height]
+hhh.Position = [1,1,20,15]; % should be 19 wide
 semilogx(kc_array, drain_V_array,'ro','Linewidth',2,'color',red,'MarkerSize',12);
+hold on
+semilogx(kc_array, drain_V_array_Europa,'kx','Linewidth',2,'color',blue,'MarkerSize',12);
+legend('Selk crater','Mannann`an crater','location','northeast');
 xlabel('$$\textrm{k}_0 [\textrm{m}^2]$$');
 ylabel('Melt delivered to ocean [km$$^3$$]');
 xticks([1e-16, 1e-14, 1e-12, 1e-10, 1e-8])
+ylim([0,35])
 saveas(hhh,sprintf('../figures/melt_deliveredvsKc.png')); 
 saveas(hhh,sprintf('../figures/melt_deliveredvsKc.pdf'));
+
+
+
+%%Time scales for Titan
+%Infiltration times
+phi_array = linspace(0,1,1000); %Porosity array
+kc_array  = logspace(-16,-8,1000); %absolute permeability mid [m2]
+[Phi_array, Kc_array] = meshgrid(phi_array,kc_array);
+rho_f = 1e3;         %density of water [kg/m3]
+mu_f = 1e-3;         %dynamic viscosity [Pa.s]
+%grav_Europa =1.315  % gravity: [m/s2] 
+grav_Titan = 1.352;   % gravity: [m/s2]
+d_Titan = 60e3;       % Titan ice shell thickness [m]    
+K_array = Kc_array.*Phi_array.^3*(rho_f - 0)*grav_Titan/(mu_f); 
+v_array = K_array./Phi_array; t_inf_array = (d_Titan./v_array)/(3.154e7);
+
+
+lag = 27;
+hhh = figure;
+hhh.Units = 'centimeters';
+% [left bottom width height]
+hhh.Position = [1,1,20,15]; % should be 19 wide
+contourf(Phi_array, Kc_array,log10(t_inf_array),20) %kc, phi and infiltration time contour plot
+% Show the colorbar
+c = colorbar;
+c.Label.String = 'Infiltration time [years]';
+c.Ticks = -2:16;
+c.TickLabels = compose('10^{%d}',c.Ticks);
+% Set the log colobar
+%set(gca,'ColorScale','log')
+set(gca,'yscale','log')
+xlabel('Melt fraction, $$\phi$$ [-]');
+ylabel('Permeability coefficient $$\textrm{k}_0$$ [m$$^2$$]');
+saveas(hhh,sprintf('../figures/infiltration_time_Titan.png')); 
+saveas(hhh,sprintf('../figures/infiltration_time_Titan.pdf'));
+
+
+
+%%%%Stokes settling at cold temperature
+Rgas = 8.314; % universal gas constant, J K^-1 mol^-1
+T_b = 273.16; % melting temperature, K
+E_a = 50e3; % viscosity activation energy
+Apar = E_a/Rgas/T_b; % viscosity exponent
+mu_b = 1e14; %basal dynamic viscosity [Pa.s]
+T_array =  273.16 + linspace(0,-20,1000);  %Ice shell temperature [K]
+volume_array = linspace(50,500,1000);      %[in km3]
+[T_array,Volume_array] = meshgrid(T_array,volume_array);
+mu_array = mu_b.*exp(Apar*(T_b./T_array-1));%Temperature corrected basal viscosity [Pa.s]
+rho_melt  = 1000; %density of the melt (water) [kg/m^3]
+rho_matrix= 917;  %density of the bath (ice) [kg/m^3] 
+yr2s      = 365.25*24*60*60; %year to second conversion [s/year]
+Rad_array    = (3.*Volume_array./(4.*pi)).^(1/3); %[in km]
+V_settling = (2/9)*(rho_melt - rho_matrix).*(Rad_array*1e3).^2.*grav_Titan./mu_array.*(yr2s/1e3); %[km/year]
+t_settling_without_refreezing = (d_Titan/1e3)./ V_settling; %settling time [years]
+
+
+%V_settling = (2/9)*(rho_melt - rho_matrix).*(Rad_array*1e3).^2.*grav_Titan./mu.*(yr2s/1e3); %[km/year]
+t_settling = d_Titan./ V_settling; %settling time [years]
+
+lag = 27;
+hhh = figure;
+hhh.Units = 'centimeters';
+% [left bottom width height]
+hhh.Position = [1,1,20,15]; % should be 19 wide
+contourf(T_array-273.16,Volume_array,(t_settling_without_refreezing),20) %kc, phi and infiltration time contour plot
+hold on
+% Show the colorbar
+c = colorbar;
+c.Label.String = 'Foundering time [years]';
+xlabel('Ice shell temperature [$$^\circ$$C]');
+ylabel('Melt volume [km$$^3$$]');
+plot(-17,192.97,'ro','Linewidth',2,'color',red,'MarkerSize',12)
+saveas(hhh,sprintf('../figures/foundering_time_Titan.png')); 
+saveas(hhh,sprintf('../figures/foundering_time_Titan.pdf'));
+
+
+
+
+%%Time scales for Europa
+%Infiltration times
+phi_array = linspace(0,1,1000); %Porosity array
+kc_array  = logspace(-16,-8,1000); %absolute permeability mid [m2]
+[Phi_array, Kc_array] = meshgrid(phi_array,kc_array);
+rho_f = 1e3;         %density of water [kg/m3]
+mu_f = 1e-3;         %dynamic viscosity [Pa.s]
+grav_Europa =1.315;  % gravity: [m/s2] 
+d_Europa = 10e3;       % Titan ice shell thickness [m]    
+K_array = Kc_array.*Phi_array.^3*(rho_f - 0)*grav_Europa/(mu_f); 
+v_array = K_array./Phi_array; t_inf_array = (d_Europa./v_array)/(3.154e7);
+
+
+lag = 27;
+hhh = figure;
+hhh.Units = 'centimeters';
+% [left bottom width height]
+hhh.Position = [1,1,20,15]; % should be 19 wide
+contourf(Phi_array, Kc_array,log10(t_inf_array),20) %kc, phi and infiltration time contour plot
+% Show the colorbar
+c = colorbar;
+c.Label.String = 'Infiltration time [years]';
+c.Ticks = -2:16;
+c.TickLabels = compose('10^{%d}',c.Ticks);
+% Set the log colobar
+%set(gca,'ColorScale','log')
+set(gca,'yscale','log')
+xlabel('Melt fraction, $$\phi$$ [-]');
+ylabel('Permeability coefficient $$\textrm{k}_0$$ [m$$^2$$]');
+saveas(hhh,sprintf('../figures/infiltration_time_Europa.png')); 
+saveas(hhh,sprintf('../figures/infiltration_time_Europa.pdf'));
+
+
+
+%%%%Stokes settling at cold temperature
+Rgas = 8.314; % universal gas constant, J K^-1 mol^-1
+T_b = 273.16; % melting temperature, K
+E_a = 50e3; % viscosity activation energy
+Apar = E_a/Rgas/T_b; % viscosity exponent
+mu_b = 1e14; %basal dynamic viscosity [Pa.s]
+T_array =  273.16 + linspace(0,-20,1000);  %Ice shell temperature [K]
+volume_array = linspace(10,100,1000);      %[in km3]
+[T_array,Volume_array] = meshgrid(T_array,volume_array);
+mu_array = mu_b.*exp(Apar*(T_b./T_array-1));%Temperature corrected basal viscosity [Pa.s]
+rho_melt  = 1000; %density of the melt (water) [kg/m^3]
+rho_matrix= 917;  %density of the bath (ice) [kg/m^3] 
+yr2s      = 365.25*24*60*60; %year to second conversion [s/year]
+Rad_array    = (3.*Volume_array./(4.*pi)).^(1/3); %[in km]
+V_settling = (2/9)*(rho_melt - rho_matrix).*(Rad_array*1e3).^2.*grav_Europa./mu_array.*(yr2s/1e3); %[km/year]
+t_settling_without_refreezing = (d_Europa/1e3)./ V_settling; %settling time [years]
+
+
+lag = 27;
+hhh = figure;
+hhh.Units = 'centimeters';
+% [left bottom width height]
+hhh.Position = [1,1,20,15]; % should be 19 wide
+contourf(T_array-273.16,Volume_array,(t_settling_without_refreezing),20) %kc, phi and infiltration time contour plot
+hold on
+% Show the colorbar
+c = colorbar;
+c.Label.String = 'Foundering time [years]';
+xlabel('Ice shell temperature [$$^\circ$$C]');
+ylabel('Melt volume [km$$^3$$]');
+plot(0,31,'ro','Linewidth',2,'color',red,'MarkerSize',12)
+saveas(hhh,sprintf('../figures/foundering_time_Europa.png')); 
+saveas(hhh,sprintf('../figures/foundering_time_Europa.pdf'));
