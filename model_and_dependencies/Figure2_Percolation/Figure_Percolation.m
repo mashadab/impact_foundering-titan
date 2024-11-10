@@ -16,6 +16,8 @@ set(groot, 'DefaultLineLineWidth', 2);
 set(0, 'DefaultFigureRenderer', 'painters'); 
 col = marc_colors();
 
+col.blue = [57 106 177]./255;
+
 %set(groot,'defaultAxesFontName','Times')
 %set(groot,'defaultAxesFontSize',20)
 %set(groot,'defaulttextinterpreter','latex')
@@ -27,7 +29,7 @@ col = marc_colors();
 scsz = get(0,'ScreenSize');
 scw = scsz(3); sch = scsz(4);
 
-specs.linewidth = 1.0;
+specs.linewidth = 2.0;
 specs.fontsize_axis = 18;
 specs.fontsize_axis_label = 18;
 specs.fontsize_label = 18;
@@ -67,7 +69,6 @@ subplot('position',[subx suby subW/figW subH/figH])
 plot_permeability(col,specs,'.')
 % subplot('position',[subx_b suby_b subW/figW subH/figH])
 
-
 %print(gcf, 'Figure_permeability.pdf','-dpdf','-r600');
 disp('done')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -88,36 +89,50 @@ k_vBW = d.^2*phi.^2/1600;
 k_WW = d^2*phi.^3/200;
 k_GHP = d^2*phi.^3/54; %original Meyer and Hewitt (2017)
 
-loglog(Freitag1999.phi,Freitag1999.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',8), hold on
+loglog(Freitag1999.phi,Freitag1999.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',12.133), hold on
 
 %Firn data: Calonne et al. (2022), The Cryosphere
 Calonne2022 = readtable("Deff_Keff_data.xlsx");
 Calonne2022_rho = table2array(Calonne2022(:,8)); Calonne2022_perm = table2array(Calonne2022(:,17));
-loglog(1-Calonne2022_rho./917,Calonne2022_perm,'s','markerfacecolor','w','markeredgecolor',col.green,'MarkerSize',8)
 
-loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
-plot(phi,k_GHP,'color',col.blue,'linewidth',specs.linewidth)
-plot(phi,d^2*phi.^2.6/180,'color',col.tan,'linewidth',specs.linewidth)
-loglog(Freitag1999.phi,Freitag1999.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',8), hold on
-loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
-loglog(Kawamura2006.phi,Kawamura2006.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',8)
-loglog(Golden2007.phi,Golden2007.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',8)
-loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
-loglog(Ghanbarzadeh2017.phi30,Ghanbarzadeh2017.k30,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
-loglog(Ghanbarzadeh2017.phi60,Ghanbarzadeh2017.k60,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
+%firn data
+loglog(1-Calonne2022_rho./917,Calonne2022_perm,'s','markerfacecolor','w','markeredgecolor',col.green,'MarkerSize',12.133)
+
+%simulations
+loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+
+%model
+plot(phi,k_GHP,'color',col.black,'linewidth',specs.linewidth)
+k_GHPby10 = (1/10)*d^2*phi.^3/54;
+k_GHPby1e2= (1/100)*d^2*phi.^3/54;
+k_GHPby1e4= (1/10000)*d^2*phi.^3/54;
+k_GHPby1e6= (1/1e6)*d^2*phi.^3/54;
+plot(phi,k_GHPby10,'color',[col.black,0.75],'linewidth',specs.linewidth)
+plot(phi,k_GHPby1e2,'color',[col.black,0.5],'linewidth',specs.linewidth)
+plot(phi,k_GHPby1e4,'color',[col.black,0.25],'linewidth',specs.linewidth)
+plot(phi,k_GHPby1e6,'color',[col.black,0.1],'linewidth',specs.linewidth)
+%plot(phi,d^2*phi.^2.6/180,'color',col.tan,'linewidth',specs.linewidth)
+
+%data
+loglog(Freitag1999.phi,Freitag1999.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',12.133), hold on
+loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+loglog(Kawamura2006.phi,Kawamura2006.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',12.133)
+loglog(Golden2007.phi,Golden2007.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',12.133)
+loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+loglog(Ghanbarzadeh2017.phi30,Ghanbarzadeh2017.k30,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+loglog(Ghanbarzadeh2017.phi60,Ghanbarzadeh2017.k60,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
 %patch([NaCl.phi_min NaCl.phi_max NaCl.phi_max NaCl.phi_min],[1e-17 1e-17 1e-9 1e-9],.5*[1 1 1],'EdgeColor','none','FaceAlpha',0.4)
-loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
-loglog(Ghanbarzadeh2017.phi30,Ghanbarzadeh2017.k30,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
-loglog(Ghanbarzadeh2017.phi60,Ghanbarzadeh2017.k60,'^','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',8)
+loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+loglog(Ghanbarzadeh2017.phi30,Ghanbarzadeh2017.k30,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+loglog(Ghanbarzadeh2017.phi60,Ghanbarzadeh2017.k60,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
 
 
-% plot(8.1221e-04*[1 1],[1e-17 1e-9],'k--')
-% text(1.7e-3,2.5e-12,'NaCl','fontsize',specs.fontsize_text)
 xlim([1e-3 1])
 ylim([1e-17 1e-9])
 xlabel('$$\phi$$ [-]','fontsize',specs.fontsize_axis_label,'Interpreter','latex')
 ylabel('$$\textrm{k}$$ [m$$^2$$]','fontsize',specs.fontsize_axis_label,'Interpreter','latex')
-legend('Sea ice data','Firn data','Textural Eqbm.','$$\textrm{k}_0 \phi^3, \textrm{k}_0=1.85\times10^{-8} \textrm{m}^2$$','$$\textrm{k}_0 \phi^{2.6}, \textrm{k}_0=5.56\times10^{-9} \textrm{m}^2$$','location','southeast','Interpreter','latex')
+%legend('Sea ice data','Firn data','Textural Eqbm.','$$\textrm{k}_0 \phi^3, \textrm{k}_0=1.85\times10^{-8} \textrm{m}^2$$','$$\textrm{k}_0 \phi^{2.6}, \textrm{k}_0=5.56\times10^{-9} \textrm{m}^2$$','location','southeast','Interpreter','latex')
+legend('Sea ice data','Firn data','Textural Equilibrium','$$\textrm{k}_0=1.85\times10^{-8} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-9} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-10} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-12} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-14} \textrm{m}^2$$','location','southeast','Interpreter','latex',BackgroundAlpha=.1)
 text(3e-5,3e-9,sub_plot,'fontsize',specs.fontsize_subpanel)
 set(gca,'fontsize',specs.fontsize_axis,'ytick',[1e-17 1e-15 1e-13 1e-11 1e-9])
 print(gcf, 'Figure_permeability.pdf','-dpdf','-r600');
