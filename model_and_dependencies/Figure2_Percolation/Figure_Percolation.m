@@ -81,6 +81,8 @@ load Kawamura2006
 load Golden2007
 load Ghanbarzadeh2017
 load BackGroundPorosity.mat
+load BackGroundPorosity.mat
+load Fowler2023.mat
 
 % Analytic parameterizations
 phi = linspace(1e-4,.95,1e2);
@@ -90,6 +92,10 @@ k_WW = d^2*phi.^3/200;
 k_GHP = d^2*phi.^3/54; %original Meyer and Hewitt (2017)
 
 loglog(Freitag1999.phi,Freitag1999.k,'o','markerfacecolor','w','markeredgecolor',col.red,'MarkerSize',12.133), hold on
+
+%Ice data: Fowler 2023
+loglog(Fowler2023.fine.phi.mean,Fowler2023.fine.k.mean,'^','markerfacecolor','w','markeredgecolor',col.skyblue,'MarkerSize',6)
+
 
 %Firn data: Calonne et al. (2022), The Cryosphere
 Calonne2022 = readtable("Deff_Keff_data.xlsx");
@@ -125,6 +131,7 @@ loglog(Ghanbarzadeh2017.phi60,Ghanbarzadeh2017.k60,'x','markerfacecolor','w','ma
 loglog(Ghanbarzadeh2017.phi10,Ghanbarzadeh2017.k10,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
 loglog(Ghanbarzadeh2017.phi30,Ghanbarzadeh2017.k30,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
 loglog(Ghanbarzadeh2017.phi60,Ghanbarzadeh2017.k60,'x','markerfacecolor','w','markeredgecolor',col.blue,'MarkerSize',12.133)
+loglog(Fowler2023.coarse.phi.mean,Fowler2023.coarse.k.mean,'^','markerfacecolor','w','markeredgecolor',col.skyblue,'MarkerSize',6)
 
 
 xlim([1e-3 1])
@@ -132,7 +139,8 @@ ylim([1e-17 1e-9])
 xlabel('$$\phi$$ [-]','fontsize',specs.fontsize_axis_label,'Interpreter','latex')
 ylabel('$$\textrm{k}$$ [m$$^2$$]','fontsize',specs.fontsize_axis_label,'Interpreter','latex')
 %legend('Sea ice data','Firn data','Textural Eqbm.','$$\textrm{k}_0 \phi^3, \textrm{k}_0=1.85\times10^{-8} \textrm{m}^2$$','$$\textrm{k}_0 \phi^{2.6}, \textrm{k}_0=5.56\times10^{-9} \textrm{m}^2$$','location','southeast','Interpreter','latex')
-legend('Sea ice data','Firn data','Textural Equilibrium','$$\textrm{k}_0=1.85\times10^{-8} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-9} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-10} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-12} \textrm{m}^2$$','$$\textrm{k}_0=1.85\times10^{-14} \textrm{m}^2$$','location','southeast','Interpreter','latex',BackgroundAlpha=.1)
+lgd = legend('Sea ice data','Poly. ice data','Firn data','Textural Eqbm.','$$\textrm{k}_0=1.85\cdot10^{-8} \textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot10^{-9} \textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot10^{-10} \textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot10^{-12} \textrm{m}^2$$','$$\textrm{k}_0=1.85\cdot10^{-14} \textrm{m}^2$$','location','southeast','Interpreter','latex',BackgroundAlpha=.1)
+lgd.NumColumns = 2; lgd.Direction = "reverse"; lgd.IconColumnWidth = 10;
 text(3e-5,3e-9,sub_plot,'fontsize',specs.fontsize_subpanel)
 set(gca,'fontsize',specs.fontsize_axis,'ytick',[1e-17 1e-15 1e-13 1e-11 1e-9])
 print(gcf, 'Figure_permeability.pdf','-dpdf','-r600');
