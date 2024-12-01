@@ -222,6 +222,33 @@ saveas(hh,sprintf('../figures/CombinedVol.pdf'));
 
 %%Combined all k0
 
+%k0 = 1.85e-9\textrm{m}^2
+Volumeeminus9 = [];
+Time_arreminus9 = [];
+pene_deptheminus9= [];
+i = 100;
+
+
+while i<=40000
+%Individual file
+load(sprintf("../Output/Shigeru_impact_Wakita-Stokes_eta0_14kc5.6e-09_Ea_50_output_%sC.mat",num2str(i))); %loading file
+
+Time_arreminus9 = [Time_arreminus9;tVec(i)]; %Time array [years]
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+
+%Calculating volume
+Volumeeminus9 = [Volumeeminus9;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
+
+%Penetration depth
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+100);  %Just staying away from ocean
+pene_deptheminus9 = [pene_deptheminus9;Grid.p.yc(pene_ind(1))];
+
+i = i+100
+end
+
+
 %k0 = 5.6e-12\textrm{m}^2
 Volumeeminus12 = [];
 Time_arreminus12 = [];
@@ -353,7 +380,7 @@ pene_depthtest= [Grid.p.yc(pene_ind(1))];
 i = 100;
 
 %kc1.85e-8m2
-while i<=49700
+while i<=158000%49700
 %Individual file
 load(sprintf("../Output/Simple-test_eta0_14kc1.85e-08_Ea_50_output_%sC.mat",num2str(i))); %loading file
 Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
@@ -384,6 +411,56 @@ saveas(hh,sprintf('../figures/1.85e-8_temperature_vol.pdf'));
 
 drain_V_array = [phiDrain1Vec(end)/1e9]; %in km3
 kc_array    = [1.85e-8]; %in m2
+
+
+
+%Testing purposes only kc=1.85e-09 m2
+d = 20e3
+load("../Output/Simple-test_eta0_14kc1.85e-09_Ea_50_output_1C.mat"); %loading file
+interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+Volumetest = [sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)];
+Time_arrtest = [tVec];
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+10);  %Just staying away from ocean
+pene_depthtest= [Grid.p.yc(pene_ind(1))];
+i = 100;
+
+%kc1.85e-09m2
+while i<=40000
+%Individual file
+load(sprintf("../Output/Simple-test_eta0_14kc1.85e-09_Ea_50_output_%sC.mat",num2str(i))); %loading file
+Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+
+Volumetest = [Volumetest;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
+
+%Penetration depth
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+10);  %Just staying away from ocean
+pene_depthtest = [pene_depthtest;Grid.p.yc(pene_ind(1))];
+
+i = i+100;
+end
+
+hh=figure()
+yline(phiOrig/1e9,'-','Linewidth',5,'color',red);
+hold on
+xlim([0, max(tVec)])
+plot(Time_arrtest,Volumetest/1e9,'-','Linewidth',5,'color',blue);
+plot(tVec,phiDrain1Vec/1e9,'-','Linewidth',5,'color',green);
+xlabel('Time [years]');
+ylabel('Melt volume [km$$^3$$]');
+legend('Initial total','Left','Delivered','location','northeast');
+saveas(hh,sprintf('../figures/1.85e-09_vol.png')); 
+saveas(hh,sprintf('../figures/1.85e-09_temperature_vol.pdf'));
+
+drain_V_array = [drain_V_array; phiDrain1Vec(end)/1e9]; %in km3
+kc_array    = [kc_array; 1.85e-09]; %in m2
+
+
 
 %Testing purposes only kc=1.85e-10 m2
 d = 20e3
@@ -431,6 +508,49 @@ saveas(hh,sprintf('../figures/1.85e-10_temperature_vol.pdf'));
 drain_V_array = [drain_V_array; phiDrain1Vec(end)/1e9]; %in km3
 kc_array    = [kc_array; 1.85e-10]; %in m2
 
+%kc1.85e-11m2
+d = 20e3
+load("../Output/Simple-test_eta0_14kc1.85e-11_Ea_50_output_1C.mat"); %loading file
+interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+Volumetest = [sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)];
+Time_arrtest = [tVec];
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+10);  %Just staying away from ocean
+pene_depthtest= [Grid.p.yc(pene_ind(1))];
+i = 100;
+while i<=143000
+%Individual file
+load(sprintf("../Output/Simple-test_eta0_14kc1.85e-11_Ea_50_output_%sC.mat",num2str(i))); %loading file
+Time_arrtest = [Time_arrtest;tVec(i)]; %Time array [years]
+phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
+phi_arr(1:interface+1,:) = 0; %Zeroing out ocean
+
+Volumetest = [Volumetest;sum(sum(phi_arr(1:end,:),1).*Grid.p.V(Grid.p.dof_ymin)' * d^3)]; %Calculating volume [in m^3]
+
+%Penetration depth
+pene_ind= find((sum(phi_arr,2)));   %Finding penetration depth index
+pene_ind(pene_ind>interface+10);  %Just staying away from ocean
+pene_depthtest = [pene_depthtest;Grid.p.yc(pene_ind(1))];
+
+i = i+1000;
+end
+
+hh=figure()
+yline(phiOrig/1e9,'-','Linewidth',5,'color',red);
+hold on
+xlim([0, max(tVec)])
+plot(Time_arrtest,Volumetest/1e9,'-','Linewidth',5,'color',blue);
+plot(tVec,phiDrain1Vec/1e9,'-','Linewidth',5,'color',green);
+xlabel('Time [years]');
+ylabel('Melt volume [km$$^3$$]');
+legend('Initial total','Left','Delivered','location','northeast');
+saveas(hh,sprintf('../figures/1.85e-11_vol.png')); 
+saveas(hh,sprintf('../figures/1.85e-11_temperature_vol.pdf'));
+
+drain_V_array = [drain_V_array; phiDrain1Vec(end)/1e9]; %in km3
+kc_array    = [kc_array; 1.85e-11]; %in m2
 
 %kc1.85e-12m2
 d = 20e3
@@ -583,6 +703,28 @@ xticks([1e-16, 1e-14, 1e-12, 1e-10, 1e-8])
 ylim([0,35])
 saveas(hhh,sprintf('../figures/melt_deliveredvsKc.png')); 
 saveas(hhh,sprintf('../figures/melt_deliveredvsKc.pdf'));
+
+lag = 27;
+hhh = figure;
+hhh.Units = 'centimeters';
+% [left bottom width height]
+hhh.Position = [1,1,20,15]; % should be 19 wide
+kc_array_Titan = [1.85e-16, 1.85e-14, 1.85e-12, 1.85e-11, 1.85e-10, 1.85e-9, 1.85e-8];
+drain_V_array_Titan = [0.8423,0.8077,0.146,0,17.159,32.7964,38.275];
+drain_V_array_uncertainty = [2.166,1.8106,2.898,2.33,4.06,1.2,1.23];
+%semilogx(kc_array_Titan, drain_V_array_Titan,'ro','Linewidth',2,'color',red,'MarkerSize',12);
+
+ax = axes();
+errorbar(ax, kc_array_Titan,drain_V_array_Titan,drain_V_array_uncertainty.*0,drain_V_array_uncertainty,'ro','Linewidth',2,'color',red,'MarkerSize',12);
+set(ax, 'XScale', 'log');
+
+%legend('Selk crater','Mannann`an crater','location','northeast');
+xlabel('Permeability coefficient $$\textrm{k}_0 [\textrm{m}^2]$$');
+ylabel('Melt delivered to ocean [km$$^3$$]');
+xticks([1e-16, 1e-14, 1e-12, 1e-10, 1e-8])
+ylim([0,40])
+saveas(hhh,sprintf('../figures/melt_deliveredvsKc_onlyTitan.png')); 
+saveas(hhh,sprintf('../figures/melt_deliveredvsKc_onlyTitan.pdf'));
 
 
 
