@@ -23,11 +23,11 @@ Grid = build_stokes_grid_cyl(Gridp);
 kc_OM = 16;
 
 if kc_OM == 10
-inds_arr = 1:4:620;
+inds_arr = 1:1:620;
 end
 
 if kc_OM == 8
-inds_arr = [1,10:20:400,500:100:22200];
+inds_arr = [1,10:10:400,500:100:22200];
 end
 
 if kc_OM == 16
@@ -36,7 +36,7 @@ end
 
 %% Video setup
  v = VideoWriter(sprintf("../figures/Europa03321_eta0_14kc1.85e-%s_Ea_50_output_%dC.mp4",num2str(kc_OM)),'MPEG-4');
-v.FrameRate = 2;
+v.FrameRate = 20;
 open(v);
 
 figure('Units','centimeters','Position',[5 5 24 10]);
@@ -96,7 +96,7 @@ for k = 1:length(inds_arr)
     xticks([-10,-5,0,5,10]);
     %ax1.Yticks.Label = [0,5,10];
     % Annotation
-    text(ax2,9.8,9.5,[num2str(round(tVec(end),2)) ' yrs'], ...
+    text(ax2,9.8,9.5,[num2str(round(tVec(end),3)) ' yrs'], ...
         'HorizontalAlignment','right','VerticalAlignment','top', ...
         'Color','k','FontSize',20,'FontWeight','bold')
 
