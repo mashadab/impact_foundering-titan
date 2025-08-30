@@ -17,7 +17,6 @@ d = 10e3;   %Thickness of ice shell [in m]
 
 
 
-
 load("../Output/Europa03321_eta0_14kc1.85e-08_Ea_50_output_1C.mat"); %loading file
 interface = (find(Grid.p.yc>0)); interface = interface(1,1); %First cell of no ocean
 phi_arr = (reshape(phi,Grid.p.Ny,Grid.p.Nx)); %reshaping to find phi
@@ -539,7 +538,7 @@ for j = 1:size(tstamp_DS,2)
 
     if j>1
         if Vol > Volume_timestamp_DS(end)
-            Vol = Volume_timestamp_DS(end);
+            Vol = VolumeDS(find(Time_arrDS==tVec(end)));
         end
     end
     Volume_timestamp_DS = [Volume_timestamp_DS,Vol]; %Calculating volume [in m^3]
@@ -605,7 +604,8 @@ for j = 1:size(tstamp_M,2)
 
     if j>1
         if Vol > Volume_timestamp_M(end)
-            Vol = Volume_timestamp_M(end);
+            
+          Vol = VolumeM(find(Time_arrM==tVec(end)));
         end
     end
     Volume_timestamp_M = [Volume_timestamp_M,Vol]; %Calculating volume [in m^3]
@@ -666,7 +666,7 @@ for j = 1:size(tstamp_S,2)
 
     if j>1
         if Vol > Volume_timestamp_S(end)
-            Vol = Volume_timestamp_S(end);
+            Vol = VolumeS(find(Time_arrS==tVec(end)));
         end
     end
     Volume_timestamp_S = [Volume_timestamp_S,Vol]; %Calculating volume [in m^3]
@@ -718,5 +718,5 @@ delete(aaa2)
 set(gca, 'XScale', 'log');
 xlim([-0.001,1e4])
 saveas(hh,sprintf('../figures/EuropaCombinedVolandpene_newS_log.png')); 
-saveas(hh,sprintf('../figures/EuropaCombinedVolandpene_newScl_log.pdf')); 
+saveas(hh,sprintf('../figures/EuropaCombinedVolandpene_newS_log.pdf')); 
 
