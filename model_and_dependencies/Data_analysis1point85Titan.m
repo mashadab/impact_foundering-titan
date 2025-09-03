@@ -1,3 +1,9 @@
+% Change working directory to the folder containing this script
+%scriptFullPath = mfilename('fullpath');   % full path of the current script
+%[scriptDir, ~, ~] = fileparts(scriptFullPath);  
+%cd(scriptDir);
+
+
 %Calculating volume at each time
     set(groot,'defaultAxesFontName','Times')
     set(groot,'defaultAxesFontSize',20)
@@ -883,7 +889,7 @@ saveas(hhh,sprintf('../figures/foundering_time_Titan.pdf'));
 %%
 %New part
 %Combined
-tstamp_DS = [1,5000,10000,20000,30000,35000,42000,50000,60000,80000]; 
+tstamp_DS = [1,5000,10000,20000,22500,24000,25000,30000,35000,42000]; %50000
 timestamp_DS = []; Volume_timestamp_DS = []; pene_depth_timestamp_DS = [];
 tstamp_M = [1,1000,2500,3000,3500,4000,4500,5500,10000,50000];
 timestamp_M = []; Volume_timestamp_M = []; pene_depth_timestamp_M = [];
@@ -1079,8 +1085,8 @@ xlim([-100,10000])
 saveas(hh,sprintf('../figures/TitanCombinedVolandpene_newS.png')); 
 saveas(hh,sprintf('../figures/TitanCombinedVolandpene_newS.pdf')); 
 
-delete(aaa1)
-delete(aaa2)
+%delete(aaa1)
+%delete(aaa2)
 set(gca, 'XScale', 'log');
 xlim([1e-1,1e4])
 saveas(hh,sprintf('../figures/TitanCombinedVolandpene_newS_log.png')); 
